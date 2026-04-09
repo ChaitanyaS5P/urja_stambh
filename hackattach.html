@@ -574,3 +574,615 @@
     border-bottom: 1px solid var(--border);
     margin-bottom: 10px;
   }
+  .toggle-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+  }
+
+  .toggle-switch {
+    width: 36px; height: 18px;
+    background: var(--border);
+    border-radius: 9px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.3s;
+    border: 1px solid var(--border);
+  }
+
+  .toggle-switch.on { background: #00e5c030; border-color: var(--accent); }
+
+  .toggle-switch::after {
+    content: '';
+    position: absolute;
+    width: 12px; height: 12px;
+    background: var(--muted);
+    border-radius: 50%;
+    top: 2px; left: 2px;
+    transition: transform 0.3s, background 0.3s;
+  }
+
+  .toggle-switch.on::after {
+    transform: translateX(18px);
+    background: var(--accent);
+    box-shadow: var(--glow);
+  }
+
+  /* ── Efficiency score ── */
+  .eff-score {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 16px;
+    text-align: center;
+    margin-bottom: 12px;
+  }
+
+  .eff-num {
+    font-family: 'Orbitron', monospace;
+    font-size: 2.6rem;
+    font-weight: 900;
+    color: var(--accent);
+    text-shadow: var(--glow);
+    line-height: 1;
+  }
+
+  .eff-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 0.2em;
+    margin-top: 4px;
+  }
+
+  .eff-sublabel {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.75rem;
+    color: var(--accent);
+    margin-top: 6px;
+    font-weight: 500;
+  }
+
+  /* ── Responsive tweaks ── */
+  @media (max-width: 1100px) {
+    .main { grid-template-columns: 240px 1fr; }
+    .panel:last-child { display: none; }
+  }
+
+  @media (max-width: 720px) {
+    .main { grid-template-columns: 1fr; height: auto; }
+    .panel { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <div class="pole-head"></div>
+      <div class="pole-shaft"></div>
+    </div>
+    <div>
+      <h1>URJA-STAMBH</h1>
+      <span>SMART CITIES MISSION 2.0 · BBMP / BESCOM BENGALURU</span>
+    </div>
+  </div>
+  <div class="header-meta">
+    <div class="status-chip"><span class="live-dot"></span>EDGE-AI ONLINE</div>
+    <div id="clock">00:00:00</div>
+  </div>
+</header>
+
+<!-- ── Main layout ── -->
+<div class="main">
+
+  <!-- LEFT: Pole list -->
+  <div class="panel" id="poleListPanel">
+    <div class="section-label">ZONE NODES</div>
+    <div id="poleList"></div>
+  </div>
+
+  <!-- CENTER -->
+  <div class="center-panel">
+
+    <!-- Hero + Gauges -->
+    <div class="pole-hero">
+      <!-- Animated pole -->
+      <div class="pole-visual-wrap" style="position:relative;">
+        <div class="pole-lamp" id="poleVizLamp">
+          <div class="pole-lamp-inner" id="poleVizInner"></div>
+        </div>
+        <div class="light-cone" id="lightCone"></div>
+        <div class="pole-body"></div>
+        <div class="pole-base"></div>
+      </div>
+
+      <!-- Controls -->
+      <div style="flex:1;">
+        <div class="section-label" style="margin-bottom:12px;">SELECTED NODE: <span id="selectedLabel" style="color:var(--accent);margin-left:6px;">USP-MG-001</span></div>
+
+        <!-- Slider -->
+        <div class="slider-wrap" style="margin-bottom:12px;">
+          <div class="slider-header">
+            <span class="slider-title">BRIGHTNESS OVERRIDE</span>
+            <span class="slider-val-display" id="sliderDisplay">AUTO</span>
+          </div>
+          <input type="range" id="brightnessSlider" min="0" max="100" value="50"
+            oninput="onSliderInput(this.value)" aria-label="Brightness Override">
+        </div>
+
+        <!-- Mode toggles -->
+        <div class="toggle-row">
+          <span class="toggle-label">AUTO-DIM (TRAFFIC ADAPTIVE)</span>
+          <div class="toggle-switch on" id="toggleAutoDim" onclick="toggleFeature('autoDim')" role="switch" aria-checked="true" tabindex="0"></div>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-label">AMBIENT LIGHT SENSOR</span>
+          <div class="toggle-switch on" id="toggleAmbient" onclick="toggleFeature('ambient')" role="switch" aria-checked="true" tabindex="0"></div>
+        </div>
+        <div class="toggle-row" style="border:none;">
+          <span class="toggle-label">ANOMALY DETECTION (AI)</span>
+          <div class="toggle-switch on" id="toggleAnomaly" onclick="toggleFeature('anomaly')" role="switch" aria-checked="true" tabindex="0"></div>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="control-grid" style="margin-top:10px;">
+          <div class="ctrl-btn active" id="btnAuto" onclick="setMode('auto')">AUTO MODE</div>
+          <div class="ctrl-btn" id="btnManual" onclick="setMode('manual')">MANUAL OVERRIDE</div>
+          <div class="ctrl-btn" id="btnNight" onclick="setMode('night')">NIGHT PROTOCOL</div>
+          <div class="ctrl-btn danger" id="btnEmergency" onclick="setMode('emergency')">EMERGENCY FULL</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gauges row -->
+    <div class="gauges-row">
+      <div class="gauge-card">
+        <div class="gauge-title">BRIGHTNESS</div>
+        <div class="gauge-val" id="gBright" style="color:var(--accent);">--</div>
+        <div class="gauge-unit">PERCENT</div>
+        <div class="gauge-bar-bg"><div class="gauge-bar-fill fill-green" id="barBright" style="width:0%"></div></div>
+      </div>
+      <div class="gauge-card">
+        <div class="gauge-title">TRAFFIC DENSITY</div>
+        <div class="gauge-val" id="gTraffic" style="color:var(--accent2);">--</div>
+        <div class="gauge-unit">VEHICLES / MIN</div>
+        <div class="gauge-bar-bg"><div class="gauge-bar-fill fill-yellow" id="barTraffic" style="width:0%"></div></div>
+      </div>
+      <div class="gauge-card">
+        <div class="gauge-title">AMBIENT LUX</div>
+        <div class="gauge-val" id="gLux" style="color:var(--dim);">--</div>
+        <div class="gauge-unit">LUX</div>
+        <div class="gauge-bar-bg"><div class="gauge-bar-fill" id="barLux" style="width:0%;background:var(--dim)"></div></div>
+      </div>
+      <div class="gauge-card">
+        <div class="gauge-title">POWER DRAW</div>
+        <div class="gauge-val" id="gPower" style="color:var(--accent3);">--</div>
+        <div class="gauge-unit">WATTS</div>
+        <div class="gauge-bar-bg"><div class="gauge-bar-fill fill-red" id="barPower" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="chart-wrap">
+      <div class="section-label">LIVE TRAFFIC · BRIGHTNESS TRACE (LAST 60s)</div>
+      <canvas id="trafficChart" height="90"></canvas>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: Log + Score -->
+  <div class="panel">
+
+    <!-- Anomaly banner -->
+    <div class="anomaly-banner" id="anomalyBanner">
+      <div class="anomaly-title">⚠ CROWD ANOMALY</div>
+      <div class="anomaly-desc" id="anomalyDesc">Unusual density at node</div>
+    </div>
+
+    <!-- Efficiency score -->
+    <div class="eff-score">
+      <div class="eff-num" id="effScore">—</div>
+      <div class="eff-label">ENERGY SAVED TODAY</div>
+      <div class="eff-sublabel" id="effLabel">Calculating…</div>
+    </div>
+
+    <div class="section-label">SYSTEM LOG</div>
+    <div id="logFeed"></div>
+  </div>
+
+</div>
+
+<script>
+/* ══════════════════════════════════════════════
+   URJA-STAMBH — Smart Street Pole Controller
+   Edge-AI Traffic-Responsive Lighting System
+   BBMP / Smart Cities Mission 2.0
+   ══════════════════════════════════════════════ */
+
+// ── State ──────────────────────────────────────
+const POLES = [
+  { id: 'USP-MG-001', zone: 'MG Road',      alert: false },
+  { id: 'USP-KR-002', zone: 'Koramangala',  alert: false },
+  { id: 'USP-IN-003', zone: 'Indiranagar',  alert: true  },
+  { id: 'USP-WF-004', zone: 'Whitefield',   alert: false },
+  { id: 'USP-JP-005', zone: 'JP Nagar',     alert: false },
+  { id: 'USP-YS-006', zone: 'Yeshwanthpur', alert: false },
+  { id: 'USP-HB-007', zone: 'Hebbal',       alert: false },
+  { id: 'USP-EC-008', zone: 'Electronic City', alert: false },
+];
+
+const state = {
+  selectedPole: 0,
+  mode: 'auto',          // auto | manual | night | emergency
+  autoDim: true,
+  ambient: true,
+  anomalyDetection: true,
+  sliderOverride: 50,
+  traffic: 0,            // vehicles/min
+  lux: 0,
+  brightness: 0,
+  power: 0,
+  savedToday: 0,
+  chartTraffic: new Array(60).fill(0),
+  chartBrightness: new Array(60).fill(0),
+  anomalyActive: false,
+  anomalyCooldown: 0,
+  tick: 0,
+};
+
+// ── DOM refs ───────────────────────────────────
+const $ = id => document.getElementById(id);
+const logFeed   = $('logFeed');
+const anomBanner = $('anomalyBanner');
+
+// ── Clock ──────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  $('clock').textContent = now.toLocaleTimeString('en-IN', { hour12: false });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Pole list render ───────────────────────────
+function renderPoleList() {
+  const list = $('poleList');
+  list.innerHTML = '';
+  POLES.forEach((p, i) => {
+    const div = document.createElement('div');
+    div.className = 'pole-card' + (i === state.selectedPole ? ' active' : '') + (p.alert ? ' alert' : '');
+    div.innerHTML = `
+      <div class="pole-card-header">
+        <span class="pole-id">${p.id}</span>
+        <span class="badge ${p.alert ? 'badge-red' : 'badge-green'}">${p.alert ? 'ALERT' : 'NOMINAL'}</span>
+      </div>
+      <div class="mini-bar-row">
+        <span class="mini-label">TRAFFIC</span>
+        <div class="mini-bar-bg"><div class="mini-bar-fill fill-yellow" style="width:${p.trafficPct||0}%"></div></div>
+        <span class="mini-val">${Math.round(p.traffic||0)}</span>
+      </div>
+      <div class="mini-bar-row">
+        <span class="mini-label">BRIGHT</span>
+        <div class="mini-bar-bg"><div class="mini-bar-fill fill-green" style="width:${p.bright||0}%"></div></div>
+        <span class="mini-val">${Math.round(p.bright||0)}%</span>
+      </div>`;
+    div.onclick = () => selectPole(i);
+    div.addEventListener('keydown', e => { if (e.key === 'Enter') selectPole(i); });
+    div.tabIndex = 0;
+    list.appendChild(div);
+  });
+}
+
+function selectPole(i) {
+  state.selectedPole = i;
+  $('selectedLabel').textContent = POLES[i].id;
+  renderPoleList();
+  addLog(`Selected node ${POLES[i].id} (${POLES[i].zone})`, 'ok');
+}
+
+// ── Mode control ───────────────────────────────
+function setMode(m) {
+  state.mode = m;
+  ['btnAuto','btnManual','btnNight','btnEmergency'].forEach(id => $(id).classList.remove('active'));
+  const map = { auto:'btnAuto', manual:'btnManual', night:'btnNight', emergency:'btnEmergency' };
+  $(map[m]).classList.add('active');
+  const msgs = {
+    auto: 'AUTO MODE activated — AI adaptive control',
+    manual: 'MANUAL OVERRIDE — brightness locked to slider',
+    night: 'NIGHT PROTOCOL — minimum safe illumination',
+    emergency: 'EMERGENCY FULL — 100% brightness forced'
+  };
+  addLog(msgs[m], m === 'emergency' ? 'alert' : 'ok');
+  if (m === 'emergency') {
+    $('brightnessSlider').value = 100;
+    $('sliderDisplay').textContent = '100%';
+  }
+}
+
+// ── Toggle features ────────────────────────────
+function toggleFeature(feat) {
+  state[feat] = !state[feat];
+  const map = { autoDim:'toggleAutoDim', ambient:'toggleAmbient', anomaly:'toggleAnomaly' };
+  const el = $(map[feat]);
+  if (el) {
+    el.classList.toggle('on', state[feat]);
+    el.setAttribute('aria-checked', state[feat]);
+  }
+  addLog(`${feat.toUpperCase()} ${state[feat] ? 'ENABLED' : 'DISABLED'}`, state[feat] ? 'ok' : 'warn');
+}
+
+// ── Slider ─────────────────────────────────────
+function onSliderInput(val) {
+  state.sliderOverride = parseInt(val, 10);
+  $('sliderDisplay').textContent = state.mode === 'auto' ? 'AUTO' : `${val}%`;
+  if (state.mode === 'auto') {
+    addLog('Slider moved in AUTO mode — switch to MANUAL to override', 'warn');
+  }
+}
+
+// ── Brightness computation ─────────────────────
+function computeBrightness(traffic, lux) {
+  if (state.mode === 'emergency') return 100;
+  if (state.mode === 'night') return 20;
+  if (state.mode === 'manual') return state.sliderOverride;
+
+  // AUTO: base from traffic density (0–100 veh/min → 20–100%)
+  let bright = 20 + (traffic / 100) * 80;
+  bright = Math.min(100, Math.max(20, bright));
+
+  // Ambient compensation: high lux (daytime) → less need for artificial light
+  if (state.ambient) {
+    // lux 0–1000: dim factor 0→1 (night needs full, day can cut back)
+    const luxFactor = Math.max(0, 1 - lux / 1000);
+    bright = bright * luxFactor;
+    bright = Math.max(state.autoDim ? 15 : 30, bright);
+  }
+
+  if (state.autoDim) {
+    // Extra dim if road is truly empty (< 5 veh/min)
+    if (traffic < 5) bright = Math.min(bright, 25);
+  }
+
+  return Math.round(Math.min(100, Math.max(10, bright)));
+}
+
+// ── Simulation tick ────────────────────────────
+function simulateTick() {
+  state.tick++;
+  const t = state.tick;
+
+  // Simulate traffic density with realistic variation
+  const hour = new Date().getHours();
+  const baseDensity = (() => {
+    if (hour >= 8 && hour <= 10) return 75;   // morning peak
+    if (hour >= 17 && hour <= 20) return 85;  // evening peak
+    if (hour >= 1 && hour <= 5) return 5;     // dead hours
+    return 35;
+  })();
+
+  // Add noise + occasional spikes
+  const spike = Math.random() < 0.05 ? 30 : 0;
+  state.traffic = Math.max(0, Math.min(100,
+    baseDensity + spike + (Math.random() - 0.5) * 18
+  ));
+
+  // Ambient lux: simulate day/night
+  const dawn = 6, dusk = 19;
+  const h = new Date().getHours() + new Date().getMinutes()/60;
+  const daylight = h >= dawn && h <= dusk;
+  state.lux = daylight
+    ? Math.max(0, 800 * Math.sin(Math.PI * (h - dawn) / (dusk - dawn)) + (Math.random() - 0.5) * 80)
+    : Math.max(0, 5 + Math.random() * 10);
+
+  state.brightness = computeBrightness(state.traffic, state.lux);
+
+  // Power: max 150W LED, scales with brightness
+  state.power = Math.round(150 * (state.brightness / 100) * 0.92);
+
+  // Energy saved vs always-on 150W
+  const savedW = 150 - state.power;
+  state.savedToday += savedW / 3600; // Wh per second tick
+  const savedKWh = (state.savedToday / 1000).toFixed(2);
+
+  // Update pole sim data
+  POLES.forEach((p, i) => {
+    const variation = (Math.random() - 0.5) * 20;
+    p.traffic = Math.max(0, Math.min(100, (i === state.selectedPole ? state.traffic : baseDensity + variation)));
+    p.trafficPct = (p.traffic / 100) * 100;
+    p.bright = i === state.selectedPole ? state.brightness :
+      computeBrightness(p.traffic, state.lux);
+  });
+
+  // Anomaly detection
+  if (state.anomalyDetection && state.anomalyCooldown <= 0) {
+    if (state.traffic > 88) {
+      triggerAnomaly(`Surge: ${Math.round(state.traffic)} veh/min at ${POLES[state.selectedPole].id}`);
+    } else if (state.traffic < 3 && hour >= 8 && hour <= 22) {
+      triggerAnomaly(`Abnormal road clearance — possible incident near ${POLES[state.selectedPole].id}`);
+    }
+  }
+  if (state.anomalyCooldown > 0) state.anomalyCooldown--;
+
+  // Update chart data
+  state.chartTraffic.push(state.traffic);
+  state.chartBrightness.push(state.brightness);
+  state.chartTraffic.shift();
+  state.chartBrightness.shift();
+
+  // Render
+  updateGauges(savedKWh);
+  updatePoleVisual();
+  renderPoleList();
+  drawChart();
+
+  // Occasional log entries
+  if (t % 12 === 0) {
+    const lvl = state.traffic > 70 ? 'warn' : state.traffic < 5 ? 'warn' : null;
+    if (lvl) addLog(`${POLES[state.selectedPole].id}: traffic ${Math.round(state.traffic)} v/min → ${state.brightness}% bright`, lvl);
+  }
+  if (t % 30 === 0) {
+    addLog(`Power draw: ${state.power}W · Saved today: ${savedKWh}kWh`, 'ok');
+  }
+}
+
+function triggerAnomaly(desc) {
+  if (state.anomalyActive) return;
+  state.anomalyActive = true;
+  state.anomalyCooldown = 40;
+  anomBanner.style.display = 'block';
+  $('anomalyDesc').textContent = desc;
+  POLES[state.selectedPole].alert = true;
+  addLog('⚠ ANOMALY: ' + desc, 'alert');
+  setTimeout(() => {
+    anomBanner.style.display = 'none';
+    POLES[state.selectedPole].alert = false;
+    state.anomalyActive = false;
+    addLog('Anomaly cleared — monitoring resumed', 'ok');
+    renderPoleList();
+  }, 8000);
+}
+
+// ── Gauges ─────────────────────────────────────
+function updateGauges(savedKWh) {
+  $('gBright').textContent = state.brightness;
+  $('barBright').style.width = state.brightness + '%';
+
+  $('gTraffic').textContent = Math.round(state.traffic);
+  $('barTraffic').style.width = (state.traffic) + '%';
+
+  $('gLux').textContent = Math.round(state.lux);
+  $('barLux').style.width = Math.min(100, state.lux / 10) + '%';
+
+  $('gPower').textContent = state.power;
+  $('barPower').style.width = (state.power / 150 * 100) + '%';
+
+  $('effScore').textContent = savedKWh + ' kWh';
+  const pct = Math.min(100, ((150 - state.power) / 150 * 100)).toFixed(0);
+  $('effLabel').textContent = `${pct}% reduction vs always-on`;
+
+  $('sliderDisplay').textContent = state.mode === 'auto' ? 'AUTO' : `${$('brightnessSlider').value}%`;
+}
+
+// ── Pole visual ────────────────────────────────
+function updatePoleVisual() {
+  const b = state.brightness / 100;
+  const r = Math.round(255 * b);
+  const g = Math.round(230 * b + 25 * (1 - b));
+  const bg = `rgb(${r},${g},${Math.round(100 * (1 - b))})`;
+  $('poleVizLamp').style.background = `rgba(${r},${g},${Math.round(100*(1-b))},0.3)`;
+  $('poleVizLamp').style.boxShadow = b > 0.3 ? `0 0 ${20*b}px rgba(${r},${g},0,${b*0.8})` : 'none';
+  $('poleVizInner').style.opacity = 0.1 + b * 0.9;
+  $('poleVizInner').style.boxShadow = b > 0.3 ? `0 0 ${30*b}px rgba(255,255,255,${b})` : 'none';
+
+  const cone = $('lightCone');
+  cone.style.opacity = b * 0.35;
+  cone.style.borderTopWidth = Math.round(20 + b * 120) + 'px';
+  cone.style.borderTopColor = `rgba(255,255,200,${b*0.7})`;
+}
+
+// ── Chart ──────────────────────────────────────
+let chartCtx;
+function initChart() {
+  const canvas = $('trafficChart');
+  chartCtx = canvas.getContext('2d');
+}
+
+function drawChart() {
+  const canvas = $('trafficChart');
+  const ctx = chartCtx;
+  const W = canvas.offsetWidth;
+  const H = canvas.offsetHeight;
+  canvas.width = W;
+  canvas.height = H;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const pad = { t: 8, b: 20, l: 8, r: 8 };
+  const cW = W - pad.l - pad.r;
+  const cH = H - pad.t - pad.b;
+  const pts = state.chartTraffic.length;
+  const dx = cW / (pts - 1);
+
+  // Grid lines
+  ctx.strokeStyle = '#0c2830';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + cH - (i / 4) * cH;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + cW, y); ctx.stroke();
+  }
+
+  function drawLine(data, color, maxVal) {
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.lineJoin = 'round';
+    data.forEach((v, i) => {
+      const x = pad.l + i * dx;
+      const y = pad.t + cH - (v / maxVal) * cH;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // Fill
+    ctx.lineTo(pad.l + (pts-1) * dx, pad.t + cH);
+    ctx.lineTo(pad.l, pad.t + cH);
+    ctx.closePath();
+    const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t + cH);
+    grad.addColorStop(0, color.replace(')', ',0.25)').replace('rgb', 'rgba'));
+    grad.addColorStop(1, color.replace(')', ',0)').replace('rgb', 'rgba'));
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+
+  drawLine(state.chartTraffic, 'rgb(245,166,35)', 100);
+  drawLine(state.chartBrightness, 'rgb(0,229,192)', 100);
+
+  // Labels
+  ctx.font = '9px Share Tech Mono, monospace';
+  ctx.fillStyle = '#3a6472';
+  ctx.fillText('TRAFFIC (veh/min)', pad.l + 4, pad.t + 11);
+  ctx.fillStyle = '#00e5c088';
+  ctx.fillText('BRIGHTNESS %', pad.l + 120, pad.t + 11);
+}
+
+// ── Log ────────────────────────────────────────
+function addLog(msg, type = '') {
+  const now = new Date().toLocaleTimeString('en-IN', { hour12: false });
+  const div = document.createElement('div');
+  div.className = 'log-entry';
+  div.innerHTML = `<span class="log-time">${now}</span><span class="log-msg ${type}">${msg}</span>`;
+  logFeed.insertBefore(div, logFeed.firstChild);
+  while (logFeed.children.length > 40) logFeed.removeChild(logFeed.lastChild);
+}
+
+// ── Keyboard accessibility for toggles ─────────
+document.querySelectorAll('.toggle-switch').forEach(el => {
+  el.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      el.click();
+    }
+  });
+});
+
+// ── Init ───────────────────────────────────────
+renderPoleList();
+initChart();
+addLog('Urja-Stambh Edge-AI Controller initialized', 'ok');
+addLog('Connecting to 8 nodes across Bengaluru zones…', 'ok');
+addLog('RTOS handshake complete — AI inference engine active', 'ok');
+
+setInterval(simulateTick, 1000);
+simulateTick();
+</script>
+</body>
+</html>
+  
