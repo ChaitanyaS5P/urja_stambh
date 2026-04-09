@@ -3,1186 +3,1681 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Urja-Stambh — Smart Street Pole Control</title>
+<title>Urja-Stambh v2 — Smart Street Pole · BBMP Command Centre</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600;700&family=Orbitron:wght@400;700;900&display=swap');
-
-  :root {
-    --bg: #040d0f;
-    --panel: #071318;
-    --panel2: #091a21;
-    --border: #0e3340;
-    --accent: #00e5c0;
-    --accent2: #f5a623;
-    --accent3: #e84040;
-    --dim: #3bf0c8;
-    --text: #b4d8e0;
-    --muted: #3a6472;
-    --grid: #0c2830;
-    --glow: 0 0 18px #00e5c088;
-    --glow2: 0 0 18px #f5a62388;
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    background: var(--bg);
-    font-family: 'Rajdhani', sans-serif;
-    color: var(--text);
-    min-height: 100vh;
-    overflow-x: hidden;
-    background-image:
-      repeating-linear-gradient(0deg, transparent, transparent 39px, var(--grid) 40px),
-      repeating-linear-gradient(90deg, transparent, transparent 39px, var(--grid) 40px);
-  }
-
-  /* ── Scanline overlay ── */
-  body::after {
-    content: '';
-    pointer-events: none;
-    position: fixed;
-    inset: 0;
-    background: repeating-linear-gradient(
-      to bottom,
-      transparent 0px, transparent 3px,
-      rgba(0,0,0,0.18) 3px, rgba(0,0,0,0.18) 4px
-    );
-    z-index: 999;
-  }
-
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 18px 32px;
-    border-bottom: 1px solid var(--border);
-    background: linear-gradient(90deg, #040d0f 60%, #071f28);
-  }
-
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-  }
-
-  .logo-icon {
-    width: 36px; height: 52px;
-    display: flex; flex-direction: column; align-items: center;
-    gap: 2px;
-  }
-
-  .pole-head {
-    width: 28px; height: 10px;
-    background: var(--accent);
-    border-radius: 3px 3px 0 0;
-    box-shadow: var(--glow);
-    position: relative;
-  }
-
-  .pole-head::after {
-    content: '';
-    position: absolute;
-    top: 3px; left: 4px; right: 4px; bottom: 2px;
-    background: #fff;
-    border-radius: 2px;
-    opacity: 0.85;
-    animation: ledPulse 2s ease-in-out infinite;
-  }
-
-  @keyframes ledPulse {
-    0%,100% { opacity: 0.85; }
-    50% { opacity: 0.4; }
-  }
-
-  .pole-shaft {
-    width: 6px;
-    flex: 1;
-    background: linear-gradient(180deg, var(--accent) 0%, #0e3340 100%);
-    border-radius: 2px;
-  }
-
-  .logo h1 {
-    font-family: 'Orbitron', monospace;
-    font-size: 1.15rem;
-    font-weight: 900;
-    letter-spacing: 0.18em;
-    color: var(--accent);
-    text-shadow: var(--glow);
-    line-height: 1.1;
-  }
-
-  .logo span {
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 0.72rem;
-    color: var(--muted);
-    letter-spacing: 0.25em;
-    font-weight: 500;
-    display: block;
-  }
-
-  .header-meta {
-    display: flex; gap: 24px; align-items: center;
-  }
-
-  .status-chip {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.72rem;
-    padding: 4px 12px;
-    border: 1px solid var(--accent);
-    border-radius: 2px;
-    color: var(--accent);
-    letter-spacing: 0.12em;
-    background: #00e5c008;
-  }
-
-  .live-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: var(--accent);
-    display: inline-block;
-    margin-right: 6px;
-    animation: blink 1.1s step-end infinite;
-  }
-
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
-
-  #clock {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.82rem;
-    color: var(--muted);
-    letter-spacing: 0.12em;
-  }
-
-  /* ── Main grid ── */
-  .main {
-    display: grid;
-    grid-template-columns: 300px 1fr 260px;
-    gap: 0;
-    height: calc(100vh - 73px);
-  }
-  /* ── Panel base ── */
-  .panel {
-    border-right: 1px solid var(--border);
-    padding: 20px;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
-  }
-
-  .panel:last-child { border-right: none; border-left: 1px solid var(--border); }
-
-  .section-label {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.62rem;
-    letter-spacing: 0.3em;
-    color: var(--muted);
-    margin-bottom: 14px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .section-label::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--border);
-  }
-
-  /* ── Pole Cards ── */
-  .pole-card {
-    background: var(--panel2);
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    padding: 12px 14px;
-    margin-bottom: 10px;
-    cursor: pointer;
-    transition: border-color 0.2s, background 0.2s;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .pole-card::before {
-    content: '';
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    width: 3px;
-    background: var(--accent);
-    opacity: 0;
-    transition: opacity 0.2s;
-  }
-
-  .pole-card.active, .pole-card:hover {
-    border-color: var(--accent);
-    background: #0a1e27;
-  }
-
-  .pole-card.active::before { opacity: 1; }
-
-  .pole-card.alert { border-color: var(--accent3); }
-  .pole-card.alert::before { background: var(--accent3); opacity: 1; }
-
-  .pole-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-  }
-
-  .pole-id {
-    font-family: 'Orbitron', monospace;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--accent);
-    letter-spacing: 0.12em;
-  }
-
-  .pole-card.alert .pole-id { color: var(--accent3); }
-
-  .badge {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.6rem;
-    padding: 2px 8px;
-    border-radius: 1px;
-    letter-spacing: 0.1em;
-  }
-   .badge-green { background: #00e5c020; color: var(--accent); border: 1px solid #00e5c040; }
-  .badge-yellow { background: #f5a62320; color: var(--accent2); border: 1px solid #f5a62340; }
-  .badge-red { background: #e8404020; color: var(--accent3); border: 1px solid #e8404040; }
-
-  .mini-bar-row {
-    display: flex; align-items: center; gap: 8px;
-    margin-bottom: 4px;
-  }
-
-  .mini-label {
-    font-size: 0.62rem;
-    color: var(--muted);
-    width: 52px;
-    letter-spacing: 0.06em;
-  }
-
-  .mini-bar-bg {
-    flex: 1; height: 4px;
-    background: var(--border);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-
-  .mini-bar-fill {
-    height: 100%;
-    border-radius: 2px;
-    transition: width 0.8s cubic-bezier(.4,0,.2,1);
-  }
-
-  .fill-green { background: var(--accent); }
-  .fill-yellow { background: var(--accent2); }
-  .fill-red { background: var(--accent3); }
-
-  .mini-val {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.6rem;
-    color: var(--text);
-    width: 30px;
-    text-align: right;
-  }
-
-  /* ── Center panel ── */
-  .center-panel {
-    padding: 20px 28px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
-
-  /* ── Big Pole Visual ── */
-  .pole-hero {
-    display: flex;
-    align-items: flex-start;
-    gap: 28px;
-  }
- /* ── Big Pole Visual ── */
-  .pole-hero {
-    display: flex;
-    align-items: flex-start;
-    gap: 28px;
-  }
-
-  .pole-visual-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0;
-    min-width: 100px;
-  }
-
-  .pole-lamp {
-    width: 80px; height: 28px;
-    border-radius: 4px 4px 0 0;
-    display: flex; align-items: center; justify-content: center;
-    position: relative;
-    transition: background 0.6s, box-shadow 0.6s;
-  }
-
-  .pole-lamp-inner {
-    width: 68px; height: 14px;
-    border-radius: 3px;
-    background: rgba(255,255,255,0.85);
-    transition: opacity 0.6s, box-shadow 0.6s;
-  }
-
-  .pole-body {
-    width: 10px;
-    height: 160px;
-    background: linear-gradient(180deg, #1a3d50 0%, #0e2530 100%);
-    border-radius: 2px;
-  }
-
-  .pole-base {
-    width: 30px; height: 10px;
-    background: #0e2530;
-    border-radius: 0 0 3px 3px;
-  }
-
-  /* Light cone */
-  .light-cone {
-    position: absolute;
-    top: 28px; left: 50%;
-    transform: translateX(-50%);
-    width: 0; height: 0;
-    border-left: 55px solid transparent;
-    border-right: 55px solid transparent;
-    pointer-events: none;
-    transition: border-top-width 0.5s, opacity 0.6s;
-    opacity: 0;
-  }
-
-  /* ── Gauges ── */
-  .gauges-row {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-  }
-
-  .gauge-card {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    padding: 14px 12px;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .gauge-card::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(135deg, rgba(0,229,192,0.04) 0%, transparent 60%);
-    pointer-events: none;
-  }
-
-  .gauge-title {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.58rem;
-    letter-spacing: 0.2em;
-    color: var(--muted);
-    margin-bottom: 8px;
-  }
-
-  .gauge-val {
-    font-family: 'Orbitron', monospace;
-    font-size: 1.7rem;
-    font-weight: 700;
-    line-height: 1;
-    margin-bottom: 4px;
-  }
-
-  .gauge-unit {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.58rem;
-    color: var(--muted);
-    letter-spacing: 0.15em;
-  }
-
-  .gauge-bar-bg {
-    height: 3px;
-    background: var(--border);
-    border-radius: 2px;
-    margin-top: 10px;
-    overflow: hidden;
-  }
-
-  .gauge-bar-fill {
-    height: 100%;
-    border-radius: 2px;
-    transition: width 1s cubic-bezier(.4,0,.2,1);
-  }
-  /* ── Chart ── */
-  .chart-wrap {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    padding: 16px;
-    flex: 1;
-  }
-
-  canvas#trafficChart {
-    width: 100% !important;
-  }
-
-  /* ── Controls ── */
-  .control-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-
-  .ctrl-btn {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.7rem;
-    letter-spacing: 0.12em;
-    padding: 10px 8px;
-    border-radius: 2px;
-    border: 1px solid var(--border);
-    background: var(--panel2);
-    color: var(--muted);
-    cursor: pointer;
-    transition: all 0.2s;
-    text-align: center;
-  }
-
-  .ctrl-btn:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: #00e5c010;
-  }
-
-  .ctrl-btn.active {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: #00e5c015;
-    box-shadow: var(--glow);
-  }
-
-  .ctrl-btn.danger { border-color: #e8404040; }
-  .ctrl-btn.danger:hover { border-color: var(--accent3); color: var(--accent3); background: #e8404010; }
-
-  /* ── Slider ── */
-  .slider-wrap {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    padding: 16px;
-  }
-
-  .slider-header {
-    display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 14px;
-  }
-
-  .slider-title {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.65rem;
-    letter-spacing: 0.2em;
-    color: var(--muted);
-  }
-
-  .slider-val-display {
-    font-family: 'Orbitron', monospace;
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: var(--accent);
-    text-shadow: var(--glow);
-  }
-
-  input[type=range] {
-    -webkit-appearance: none;
-    width: 100%;
-    height: 4px;
-    background: var(--border);
-    border-radius: 2px;
-    outline: none;
-  }
-
-  input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 16px; height: 16px;
-    border-radius: 50%;
-    background: var(--accent);
-    box-shadow: var(--glow);
-    cursor: pointer;
-    transition: transform 0.15s;
-  }
-
-  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
-
-  /* ── Right panel: Log ── */
-  .log-entry {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 9px;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.62rem;
-    line-height: 1.5;
-    opacity: 0;
-    animation: fadeIn 0.4s forwards;
-  }
-
-  @keyframes fadeIn { to { opacity: 1; } }
-
-  .log-time { color: var(--muted); flex-shrink: 0; }
-  .log-msg { color: var(--text); }
-  .log-msg.warn { color: var(--accent2); }
-  .log-msg.alert { color: var(--accent3); }
-  .log-msg.ok { color: var(--accent); }
-
-  /* ── Anomaly banner ── */
-  .anomaly-banner {
-    background: #e8404015;
-    border: 1px solid var(--accent3);
-    border-radius: 3px;
-    padding: 12px 14px;
-    margin-bottom: 14px;
-    display: none;
-    animation: alertPulse 1s ease-in-out infinite alternate;
-  }
-
-  @keyframes alertPulse {
-    from { border-color: #e84040; }
-    to { border-color: #e8404070; }
-  }
-
-  .anomaly-title {
-    font-family: 'Orbitron', monospace;
-    font-size: 0.72rem;
-    color: var(--accent3);
-    letter-spacing: 0.12em;
-    margin-bottom: 4px;
-  }
-
-  .anomaly-desc {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.6rem;
-    color: #e84040bb;
-    letter-spacing: 0.08em;
-  }
-
-  /* ── Ambient toggle ── */
-  .toggle-row {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 10px;
-  }
-  .toggle-label {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.65rem;
-    color: var(--muted);
-    letter-spacing: 0.12em;
-  }
-
-  .toggle-switch {
-    width: 36px; height: 18px;
-    background: var(--border);
-    border-radius: 9px;
-    position: relative;
-    cursor: pointer;
-    transition: background 0.3s;
-    border: 1px solid var(--border);
-  }
-
-  .toggle-switch.on { background: #00e5c030; border-color: var(--accent); }
-
-  .toggle-switch::after {
-    content: '';
-    position: absolute;
-    width: 12px; height: 12px;
-    background: var(--muted);
-    border-radius: 50%;
-    top: 2px; left: 2px;
-    transition: transform 0.3s, background 0.3s;
-  }
-
-  .toggle-switch.on::after {
-    transform: translateX(18px);
-    background: var(--accent);
-    box-shadow: var(--glow);
-  }
-
-  /* ── Efficiency score ── */
-  .eff-score {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    padding: 16px;
-    text-align: center;
-    margin-bottom: 12px;
-  }
-
-  .eff-num {
-    font-family: 'Orbitron', monospace;
-    font-size: 2.6rem;
-    font-weight: 900;
-    color: var(--accent);
-    text-shadow: var(--glow);
-    line-height: 1;
-  }
-
-  .eff-label {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.6rem;
-    color: var(--muted);
-    letter-spacing: 0.2em;
-    margin-top: 4px;
-  }
-
-  .eff-sublabel {
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 0.75rem;
-    color: var(--accent);
-    margin-top: 6px;
-    font-weight: 500;
-  }
-
-  /* ── Responsive tweaks ── */
-  @media (max-width: 1100px) {
-    .main { grid-template-columns: 240px 1fr; }
-    .panel:last-child { display: none; }
-  }
-
-  @media (max-width: 720px) {
-    .main { grid-template-columns: 1fr; height: auto; }
-    .panel { border-right: none; border-bottom: 1px solid var(--border); }
-  }
-
-  /* Scrollbar */
-  ::-webkit-scrollbar { width: 4px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+@import url('https://fonts.googleapis.com/css2?family=Syne+Mono&family=Syne:wght@400;600;700;800&family=Space+Grotesk:wght@300;400;500;600&display=swap');
+
+/* ═══════════════════════════════════════════
+   DESIGN SYSTEM — Industrial Amber on Deep Slate
+   Aesthetic: Blueprint / Mission Control / ISRO-era Indian tech
+   ═══════════════════════════════════════════ */
+:root {
+  --ink:     #06090d;
+  --deep:    #0a0f17;
+  --panel:   #0d1520;
+  --card:    #111d2e;
+  --border:  #1a2e45;
+  --border2: #223a54;
+  --amber:   #f5a623;
+  --amber2:  #ffcc5c;
+  --teal:    #26d9b0;
+  --red:     #ff4d4d;
+  --blue:    #4d9fff;
+  --text:    #c8dae8;
+  --muted:   #4a6a82;
+  --faint:   #1c2e42;
+  --glow-a:  0 0 16px #f5a62355;
+  --glow-t:  0 0 16px #26d9b055;
+  --font-mono: 'Syne Mono', monospace;
+  --font-display: 'Syne', sans-serif;
+  --font-body: 'Space Grotesk', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 14px; }
+
+body {
+  background: var(--ink);
+  font-family: var(--font-body);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, #0d2540 0%, transparent 60%),
+    repeating-linear-gradient(0deg,   transparent, transparent 47px, var(--faint) 48px),
+    repeating-linear-gradient(90deg,  transparent, transparent 47px, var(--faint) 48px);
+}
+
+/* Scanlines */
+body::before {
+  content: '';
+  pointer-events: none;
+  position: fixed; inset: 0; z-index: 9999;
+  background: repeating-linear-gradient(transparent 0px, transparent 2px, rgba(0,0,0,0.12) 2px, rgba(0,0,0,0.12) 3px);
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* ═══════════════ HEADER ═══════════════ */
+#header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 28px;
+  background: linear-gradient(90deg, #0a0f17 0%, #0c1828 100%);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 100;
+}
+
+.brand {
+  display: flex; align-items: center; gap: 14px;
+}
+
+.brand-icon {
+  width: 32px; display: flex; flex-direction: column; align-items: center; gap: 1px;
+}
+.brand-lamp {
+  width: 32px; height: 10px;
+  background: var(--amber);
+  border-radius: 3px 3px 0 0;
+  box-shadow: 0 0 14px var(--amber), 0 0 28px #f5a62355;
+  animation: lampFlicker 3s ease-in-out infinite;
+  position: relative;
+}
+.brand-lamp::after {
+  content: '';
+  position: absolute; inset: 2px 4px;
+  background: rgba(255,255,255,0.9);
+  border-radius: 2px;
+}
+@keyframes lampFlicker {
+  0%,94%,100% { opacity: 1; }
+  95% { opacity: 0.85; }
+  97% { opacity: 1; }
+}
+.brand-post {
+  width: 5px; height: 36px;
+  background: linear-gradient(180deg, var(--amber) 0%, var(--border2) 100%);
+  border-radius: 2px;
+}
+
+.brand-text h1 {
+  font-family: var(--font-display);
+  font-size: 1.1rem; font-weight: 800;
+  letter-spacing: 0.15em;
+  color: var(--amber);
+  text-shadow: var(--glow-a);
+}
+.brand-text p {
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  color: var(--muted);
+  letter-spacing: 0.28em;
+  margin-top: 1px;
+}
+
+.header-right {
+  display: flex; align-items: center; gap: 20px;
+}
+.pill {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  padding: 4px 12px;
+  border: 1px solid;
+  border-radius: 2px;
+}
+.pill-teal { border-color: var(--teal); color: var(--teal); background: #26d9b010; }
+.pill-amber { border-color: var(--amber); color: var(--amber); background: #f5a62310; }
+
+.live-dot {
+  display: inline-block; width: 7px; height: 7px;
+  border-radius: 50%; background: var(--teal);
+  margin-right: 5px;
+  animation: pulse 1.2s ease-in-out infinite;
+  box-shadow: 0 0 6px var(--teal);
+}
+@keyframes pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.3);opacity:0.7} }
+
+#hdrClock {
+  font-family: var(--font-mono);
+  font-size: 0.72rem; color: var(--muted); letter-spacing: 0.1em;
+}
+
+/* ═══════════════ NAV TABS ═══════════════ */
+#navBar {
+  display: flex; gap: 0;
+  background: var(--deep);
+  border-bottom: 1px solid var(--border);
+  padding: 0 28px;
+}
+.nav-tab {
+  font-family: var(--font-mono);
+  font-size: 0.65rem; letter-spacing: 0.18em;
+  padding: 11px 20px;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+  white-space: nowrap;
+}
+.nav-tab:hover { color: var(--text); }
+.nav-tab.active { color: var(--amber); border-bottom-color: var(--amber); }
+
+/* ═══════════════ PAGES ═══════════════ */
+.page { display: none; }
+.page.active { display: block; }
+
+/* ═══════════════ LIVE CONTROL PAGE ═══════════════ */
+#pageLive {
+  display: grid;
+  grid-template-columns: 280px 1fr 240px;
+  height: calc(100vh - 97px);
+  overflow: hidden;
+}
+
+/* Left Sidebar */
+.sidebar {
+  background: var(--deep);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 16px;
+}
+.sidebar-right {
+  background: var(--deep);
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.sec-head {
+  font-family: var(--font-mono);
+  font-size: 0.57rem; letter-spacing: 0.3em;
+  color: var(--muted);
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 12px;
+}
+.sec-head::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+
+/* Pole Cards */
+.pcard {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 11px 13px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  position: relative; overflow: hidden;
+}
+.pcard-accent {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px; background: var(--teal); opacity: 0;
+  transition: opacity 0.2s;
+}
+.pcard.active .pcard-accent,
+.pcard:hover .pcard-accent { opacity: 1; }
+.pcard.active { border-color: var(--teal); background: #112235; }
+.pcard.alerted { border-color: var(--red); }
+.pcard.alerted .pcard-accent { background: var(--red); opacity: 1; }
+
+.pcard-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; }
+.pcard-id {
+  font-family: var(--font-mono); font-size: 0.68rem; font-weight: 700;
+  color: var(--teal); letter-spacing: 0.1em;
+}
+.pcard.alerted .pcard-id { color: var(--red); }
+
+.tag {
+  font-family: var(--font-mono); font-size: 0.55rem;
+  padding: 2px 7px; border-radius: 1px; letter-spacing: 0.08em;
+}
+.tag-g { background: #26d9b015; color: var(--teal); border: 1px solid #26d9b030; }
+.tag-y { background: #f5a62315; color: var(--amber); border: 1px solid #f5a62330; }
+.tag-r { background: #ff4d4d15; color: var(--red); border: 1px solid #ff4d4d30; }
+
+.mbar { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; }
+.mbar-lbl { font-size: 0.58rem; color: var(--muted); width: 46px; letter-spacing: 0.04em; }
+.mbar-track { flex: 1; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.mbar-fill { height: 100%; border-radius: 2px; transition: width 0.8s ease; }
+.mbar-num { font-family: var(--font-mono); font-size: 0.57rem; color: var(--text); width: 28px; text-align: right; }
+
+/* Centre Column */
+.centre {
+  overflow-y: auto;
+  padding: 20px 24px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+
+/* Pole 3D Visual */
+.hero-row { display: flex; gap: 20px; align-items: flex-start; }
+
+.pole3d {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 0; flex-shrink: 0; position: relative;
+}
+.p3d-lamp {
+  width: 86px; height: 26px; border-radius: 4px 4px 0 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.6s, box-shadow 0.6s;
+  position: relative; z-index: 2;
+}
+.p3d-lens {
+  width: 72px; height: 13px; border-radius: 3px;
+  background: rgba(255,255,255,0.9);
+  transition: opacity 0.6s, box-shadow 0.6s;
+}
+.p3d-cone {
+  position: absolute; top: 26px; left: 50%;
+  transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 60px solid transparent;
+  border-right: 60px solid transparent;
+  border-top: 0px solid transparent;
+  transition: border-top-width 0.6s ease, opacity 0.6s ease;
+  opacity: 0; pointer-events: none; z-index: 1;
+}
+.p3d-arm { width: 3px; height: 20px; background: var(--border2); }
+.p3d-neck { width: 8px; height: 140px; background: linear-gradient(180deg, #253d55 0%, #14253a 100%); border-radius: 2px; }
+.p3d-base { width: 26px; height: 8px; background: #14253a; border-radius: 0 0 3px 3px; }
+
+/* Controls on the right of pole */
+.ctrl-block { flex: 1; }
+
+.slider-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 3px; padding: 14px; margin-bottom: 10px;
+}
+.slider-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.slider-lbl { font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.18em; color: var(--muted); }
+.slider-val { font-family: var(--font-display); font-size: 1.2rem; font-weight: 800; color: var(--amber); text-shadow: var(--glow-a); }
+
+input[type=range] {
+  -webkit-appearance: none; width: 100%; height: 3px;
+  background: var(--border); border-radius: 2px; outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 15px; height: 15px;
+  border-radius: 50%; background: var(--amber);
+  box-shadow: 0 0 8px var(--amber); cursor: pointer;
+  transition: transform 0.15s;
+}
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
+
+.toggles-grid {
+  display: grid; grid-template-columns: 1fr; gap: 0;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 3px; margin-bottom: 10px; overflow: hidden;
+}
+.trow {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 13px; border-bottom: 1px solid var(--border);
+}
+.trow:last-child { border-bottom: none; }
+.trow-lbl { font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.1em; color: var(--muted); }
+
+.sw {
+  width: 34px; height: 17px; border-radius: 9px;
+  background: var(--border); position: relative; cursor: pointer;
+  transition: background 0.3s; border: 1px solid var(--border2);
+  flex-shrink: 0;
+}
+.sw.on { background: #26d9b025; border-color: var(--teal); }
+.sw::after {
+  content: ''; position: absolute;
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--muted); top: 2px; left: 2px;
+  transition: transform 0.3s, background 0.3s;
+}
+.sw.on::after { transform: translateX(17px); background: var(--teal); box-shadow: 0 0 5px var(--teal); }
+
+.mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.mbtn {
+  font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.1em;
+  padding: 9px 7px; border-radius: 2px; text-align: center;
+  border: 1px solid var(--border); background: var(--card);
+  color: var(--muted); cursor: pointer; transition: all 0.2s;
+}
+.mbtn:hover { border-color: var(--amber); color: var(--amber); background: #f5a62308; }
+.mbtn.active { border-color: var(--amber); color: var(--amber); background: #f5a62312; box-shadow: var(--glow-a); }
+.mbtn.danger:hover,.mbtn.danger.active { border-color: var(--red); color: var(--red); background: #ff4d4d10; box-shadow: 0 0 14px #ff4d4d33; }
+
+/* Gauges */
+.gauges { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.g-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 3px; padding: 13px 11px; position: relative; overflow: hidden;
+}
+.g-card::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(245,166,35,0.03) 0%, transparent 55%);
+  pointer-events: none;
+}
+.g-title { font-family: var(--font-mono); font-size: 0.54rem; letter-spacing: 0.2em; color: var(--muted); margin-bottom: 6px; }
+.g-num { font-family: var(--font-display); font-size: 1.65rem; font-weight: 800; line-height: 1; margin-bottom: 3px; }
+.g-unit { font-family: var(--font-mono); font-size: 0.54rem; color: var(--muted); letter-spacing: 0.14em; }
+.g-track { height: 3px; background: var(--border); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+.g-fill { height: 100%; border-radius: 2px; transition: width 1s ease; }
+
+/* Live Chart */
+.chart-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 3px; padding: 14px;
+}
+.chart-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.chart-legend { display: flex; gap: 14px; }
+.leg { font-family: var(--font-mono); font-size: 0.57rem; letter-spacing: 0.1em; display: flex; align-items: center; gap: 5px; }
+.leg-dot { width: 8px; height: 3px; border-radius: 2px; }
+
+canvas { display: block; }
+
+/* Anomaly Banner */
+.anomaly-banner {
+  background: #ff4d4d0c; border: 1px solid var(--red);
+  border-radius: 3px; padding: 11px 14px;
+  display: none; margin-bottom: 0;
+  animation: aFlash 1.2s ease-in-out infinite alternate;
+}
+@keyframes aFlash { from { border-color: var(--red); } to { border-color: #ff4d4d55; } }
+.ab-title { font-family: var(--font-display); font-size: 0.8rem; font-weight: 700; color: var(--red); margin-bottom: 3px; letter-spacing: 0.06em; }
+.ab-desc { font-family: var(--font-mono); font-size: 0.58rem; color: #ff4d4daa; letter-spacing: 0.06em; }
+
+/* Efficiency */
+.eff-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 3px; padding: 14px; text-align: center; margin-bottom: 12px;
+}
+.eff-num { font-family: var(--font-display); font-size: 2.2rem; font-weight: 800; color: var(--teal); text-shadow: var(--glow-t); line-height: 1; }
+.eff-lbl { font-family: var(--font-mono); font-size: 0.56rem; color: var(--muted); letter-spacing: 0.18em; margin-top: 4px; }
+.eff-sub { font-family: var(--font-body); font-size: 0.72rem; color: var(--teal); margin-top: 5px; font-weight: 500; }
+
+/* Log */
+.log-item {
+  display: flex; gap: 8px; margin-bottom: 8px;
+  font-family: var(--font-mono); font-size: 0.58rem;
+  line-height: 1.55; opacity: 0; animation: fadeUp 0.35s forwards;
+}
+@keyframes fadeUp { to { opacity: 1; } }
+.log-t { color: var(--muted); flex-shrink: 0; }
+.log-m { color: var(--text); }
+.log-m.ok { color: var(--teal); }
+.log-m.warn { color: var(--amber); }
+.log-m.alert { color: var(--red); }
+
+
+/* ═══════════════ STATS PAGES ═══════════════ */
+.stats-page { padding: 28px 32px; overflow-y: auto; height: calc(100vh - 97px); }
+
+.stats-header {
+  margin-bottom: 24px;
+}
+.stats-title { font-family: var(--font-display); font-size: 1.4rem; font-weight: 800; color: var(--amber); letter-spacing: 0.04em; margin-bottom: 4px; }
+.stats-sub { font-family: var(--font-mono); font-size: 0.62rem; color: var(--muted); letter-spacing: 0.18em; }
+
+.stats-kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+.kpi-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 4px; padding: 18px 16px;
+  position: relative; overflow: hidden;
+}
+.kpi-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+}
+.kpi-card.kpi-t::before { background: var(--teal); }
+.kpi-card.kpi-a::before { background: var(--amber); }
+.kpi-card.kpi-r::before { background: var(--red); }
+.kpi-card.kpi-b::before { background: var(--blue); }
+
+.kpi-label { font-family: var(--font-mono); font-size: 0.57rem; letter-spacing: 0.2em; color: var(--muted); margin-bottom: 8px; }
+.kpi-val { font-family: var(--font-display); font-size: 2rem; font-weight: 800; line-height: 1; margin-bottom: 3px; }
+.kpi-card.kpi-t .kpi-val { color: var(--teal); }
+.kpi-card.kpi-a .kpi-val { color: var(--amber); }
+.kpi-card.kpi-r .kpi-val { color: var(--red); }
+.kpi-card.kpi-b .kpi-val { color: var(--blue); }
+.kpi-unit { font-family: var(--font-mono); font-size: 0.58rem; color: var(--muted); letter-spacing: 0.1em; }
+.kpi-delta { font-family: var(--font-body); font-size: 0.68rem; margin-top: 8px; }
+.kpi-delta.up { color: var(--teal); }
+.kpi-delta.dn { color: var(--red); }
+
+.charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.charts-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.big-chart { grid-column: span 2; }
+
+.stat-chart-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 4px; padding: 18px;
+}
+.sc-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+.sc-title { font-family: var(--font-display); font-size: 0.85rem; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+.sc-sub { font-family: var(--font-mono); font-size: 0.54rem; color: var(--muted); letter-spacing: 0.14em; }
+.sc-badge {
+  font-family: var(--font-mono); font-size: 0.56rem; padding: 3px 9px;
+  border-radius: 2px; letter-spacing: 0.1em;
+}
+
+/* Heatmap */
+.heatmap-grid {
+  display: grid; gap: 3px;
+}
+.hm-cell {
+  border-radius: 2px; height: 14px; cursor: pointer;
+  transition: transform 0.1s;
+  position: relative;
+}
+.hm-cell:hover { transform: scale(1.15); }
+.hm-cell:hover::after {
+  content: attr(data-tip);
+  position: absolute; bottom: 120%; left: 50%;
+  transform: translateX(-50%);
+  background: var(--panel); border: 1px solid var(--border2);
+  color: var(--text); font-family: var(--font-mono);
+  font-size: 0.55rem; padding: 3px 7px; border-radius: 2px;
+  white-space: nowrap; z-index: 10; pointer-events: none;
+}
+
+/* Zone table */
+.ztable { width: 100%; border-collapse: collapse; }
+.ztable th {
+  font-family: var(--font-mono); font-size: 0.56rem; letter-spacing: 0.18em;
+  color: var(--muted); text-align: left; padding: 8px 10px;
+  border-bottom: 1px solid var(--border2);
+}
+.ztable td {
+  font-family: var(--font-body); font-size: 0.72rem;
+  color: var(--text); padding: 9px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.ztable tr:last-child td { border-bottom: none; }
+.ztable tr:hover td { background: #112235; }
+.ztable td.mono { font-family: var(--font-mono); font-size: 0.65rem; }
+.ztable td.good { color: var(--teal); }
+.ztable td.warn { color: var(--amber); }
+.ztable td.bad { color: var(--red); }
+
+/* ── Responsive ── */
+@media (max-width: 1080px) {
+  #pageLive { grid-template-columns: 240px 1fr; }
+  .sidebar-right { display: none; }
+  .gauges { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 720px) {
+  #pageLive { grid-template-columns: 1fr; height: auto; }
+  .sidebar { display: none; }
+  .gauges { grid-template-columns: repeat(2, 1fr); }
+  .stats-kpi-row { grid-template-columns: 1fr 1fr; }
+  .charts-row, .charts-row-3 { grid-template-columns: 1fr; }
+}
 </style>
 </head>
 <body>
 
-<!-- ── Header ── -->
-<header>
-  <div class="logo">
-    <div class="logo-icon">
-      <div class="pole-head"></div>
-      <div class="pole-shaft"></div>
+<!-- ════ HEADER ════ -->
+<div id="header">
+  <div class="brand">
+    <div class="brand-icon">
+      <div class="brand-lamp"></div>
+      <div class="brand-post"></div>
     </div>
-    <div>
+    <div class="brand-text">
       <h1>URJA-STAMBH</h1>
-      <span>SMART CITIES MISSION 2.0 · BBMP / BESCOM BENGALURU</span>
+      <p>SMART CITIES MISSION 2.0 · BBMP/BESCOM · BENGALURU</p>
     </div>
   </div>
-  <div class="header-meta">
-    <div class="status-chip"><span class="live-dot"></span>EDGE-AI ONLINE</div>
-    <div id="clock">00:00:00</div>
+  <div class="header-right">
+    <div class="pill pill-teal"><span class="live-dot"></span>EDGE-AI ACTIVE</div>
+    <div class="pill pill-amber">8 NODES ONLINE</div>
+    <div id="hdrClock">00:00:00</div>
   </div>
-</header>
+</div>
 
-<!-- ── Main layout ── -->
-<div class="main">
+<!-- ════ NAV TABS ════ -->
+<div id="navBar">
+  <div class="nav-tab active" data-page="pageLive">⬡ LIVE CONTROL</div>
+  <div class="nav-tab" data-page="pageMonthly">▦ MONTHLY STATS</div>
+  <div class="nav-tab" data-page="pageYearly">◈ YEARLY ANALYTICS</div>
+  <div class="nav-tab" data-page="pageZones">⊞ ZONE REPORT</div>
+</div>
 
-  <!-- LEFT: Pole list -->
-  <div class="panel" id="poleListPanel">
-    <div class="section-label">ZONE NODES</div>
+<!-- ════════════════════════════════════
+     PAGE 1: LIVE CONTROL
+════════════════════════════════════ -->
+<div id="pageLive" class="page active" style="display:grid;grid-template-columns:280px 1fr 240px;height:calc(100vh - 97px);overflow:hidden;">
+
+  <!-- Left Sidebar -->
+  <div class="sidebar">
+    <div class="sec-head">ZONE NODES</div>
     <div id="poleList"></div>
   </div>
 
-  <!-- CENTER -->
-  <div class="center-panel">
+  <!-- Centre -->
+  <div class="centre">
+    <!-- Anomaly -->
+    <div class="anomaly-banner" id="anomBanner">
+      <div class="ab-title">⚠ CROWD ANOMALY DETECTED</div>
+      <div class="ab-desc" id="anomDesc">Density surge at node</div>
+    </div>
 
-    <!-- Hero + Gauges -->
-    <div class="pole-hero">
-      <!-- Animated pole -->
-      <div class="pole-visual-wrap" style="position:relative;">
-        <div class="pole-lamp" id="poleVizLamp">
-          <div class="pole-lamp-inner" id="poleVizInner"></div>
+    <!-- Hero Row -->
+    <div class="hero-row">
+      <!-- Pole visual -->
+      <div class="pole3d">
+        <div class="p3d-lamp" id="vizLamp">
+          <div class="p3d-lens" id="vizLens"></div>
         </div>
-        <div class="light-cone" id="lightCone"></div>
-        <div class="pole-body"></div>
-        <div class="pole-base"></div>
+        <div class="p3d-cone" id="vizCone"></div>
+        <div class="p3d-arm"></div>
+        <div class="p3d-neck"></div>
+        <div class="p3d-base"></div>
       </div>
-
       <!-- Controls -->
-      <div style="flex:1;">
-        <div class="section-label" style="margin-bottom:12px;">SELECTED NODE: <span id="selectedLabel" style="color:var(--accent);margin-left:6px;">USP-MG-001</span></div>
+      <div class="ctrl-block">
+        <div class="sec-head" style="margin-bottom:10px;">
+          NODE:&nbsp;<span id="selLabel" style="color:var(--teal)">USP-MG-001</span>
+        </div>
 
-        <!-- Slider -->
-        <div class="slider-wrap" style="margin-bottom:12px;">
-          <div class="slider-header">
-            <span class="slider-title">BRIGHTNESS OVERRIDE</span>
-            <span class="slider-val-display" id="sliderDisplay">AUTO</span>
+        <!-- Brightness slider -->
+        <div class="slider-card">
+          <div class="slider-top">
+            <span class="slider-lbl">BRIGHTNESS OVERRIDE</span>
+            <span class="slider-val" id="sliderDisp">AUTO</span>
           </div>
-          <input type="range" id="brightnessSlider" min="0" max="100" value="50"
-            oninput="onSliderInput(this.value)" aria-label="Brightness Override">
+          <input type="range" id="brightSlider" min="0" max="100" value="50"
+            aria-label="Brightness override" oninput="onSlider(this.value)">
         </div>
 
-        <!-- Mode toggles -->
-        <div class="toggle-row">
-          <span class="toggle-label">AUTO-DIM (TRAFFIC ADAPTIVE)</span>
-          <div class="toggle-switch on" id="toggleAutoDim" onclick="toggleFeature('autoDim')" role="switch" aria-checked="true" tabindex="0"></div>
-        </div>
-        <div class="toggle-row">
-          <span class="toggle-label">AMBIENT LIGHT SENSOR</span>
-          <div class="toggle-switch on" id="toggleAmbient" onclick="toggleFeature('ambient')" role="switch" aria-checked="true" tabindex="0"></div>
-        </div>
-        <div class="toggle-row" style="border:none;">
-          <span class="toggle-label">ANOMALY DETECTION (AI)</span>
-          <div class="toggle-switch on" id="toggleAnomaly" onclick="toggleFeature('anomaly')" role="switch" aria-checked="true" tabindex="0"></div>
+        <!-- Feature toggles -->
+        <div class="toggles-grid">
+          <div class="trow">
+            <span class="trow-lbl">AUTO-DIM (TRAFFIC ADAPTIVE)</span>
+            <div class="sw on" id="sw-autoDim" onclick="togFeat('autoDim')" tabindex="0" role="switch" aria-checked="true"></div>
+          </div>
+          <div class="trow">
+            <span class="trow-lbl">AMBIENT LIGHT SENSOR</span>
+            <div class="sw on" id="sw-ambient" onclick="togFeat('ambient')" tabindex="0" role="switch" aria-checked="true"></div>
+          </div>
+          <div class="trow">
+            <span class="trow-lbl">AI ANOMALY DETECTION</span>
+            <div class="sw on" id="sw-anomaly" onclick="togFeat('anomaly')" tabindex="0" role="switch" aria-checked="true"></div>
+          </div>
         </div>
 
-        <!-- Action buttons -->
-        <div class="control-grid" style="margin-top:10px;">
-          <div class="ctrl-btn active" id="btnAuto" onclick="setMode('auto')">AUTO MODE</div>
-          <div class="ctrl-btn" id="btnManual" onclick="setMode('manual')">MANUAL OVERRIDE</div>
-          <div class="ctrl-btn" id="btnNight" onclick="setMode('night')">NIGHT PROTOCOL</div>
-          <div class="ctrl-btn danger" id="btnEmergency" onclick="setMode('emergency')">EMERGENCY FULL</div>
+        <!-- Mode buttons -->
+        <div class="mode-grid">
+          <div class="mbtn active" id="mb-auto"      onclick="setMode('auto')">AUTO MODE</div>
+          <div class="mbtn"        id="mb-manual"    onclick="setMode('manual')">MANUAL OVERRIDE</div>
+          <div class="mbtn"        id="mb-night"     onclick="setMode('night')">NIGHT PROTOCOL</div>
+          <div class="mbtn danger" id="mb-emergency" onclick="setMode('emergency')">EMERGENCY FULL</div>
         </div>
       </div>
     </div>
 
-    <!-- Gauges row -->
-    <div class="gauges-row">
-      <div class="gauge-card">
-        <div class="gauge-title">BRIGHTNESS</div>
-        <div class="gauge-val" id="gBright" style="color:var(--accent);">--</div>
-        <div class="gauge-unit">PERCENT</div>
-        <div class="gauge-bar-bg"><div class="gauge-bar-fill fill-green" id="barBright" style="width:0%"></div></div>
+    <!-- Gauges -->
+    <div class="gauges">
+      <div class="g-card">
+        <div class="g-title">BRIGHTNESS</div>
+        <div class="g-num" id="gBright" style="color:var(--amber)">--</div>
+        <div class="g-unit">PERCENT</div>
+        <div class="g-track"><div class="g-fill" id="fBright" style="width:0%;background:var(--amber)"></div></div>
       </div>
-      <div class="gauge-card">
-        <div class="gauge-title">TRAFFIC DENSITY</div>
-        <div class="gauge-val" id="gTraffic" style="color:var(--accent2);">--</div>
-        <div class="gauge-unit">VEHICLES / MIN</div>
-        <div class="gauge-bar-bg"><div class="gauge-bar-fill fill-yellow" id="barTraffic" style="width:0%"></div></div>
+      <div class="g-card">
+        <div class="g-title">TRAFFIC DENSITY</div>
+        <div class="g-num" id="gTraffic" style="color:var(--teal)">--</div>
+        <div class="g-unit">VEHICLES / MIN</div>
+        <div class="g-track"><div class="g-fill" id="fTraffic" style="width:0%;background:var(--teal)"></div></div>
       </div>
-      <div class="gauge-card">
-        <div class="gauge-title">AMBIENT LUX</div>
-        <div class="gauge-val" id="gLux" style="color:var(--dim);">--</div>
-        <div class="gauge-unit">LUX</div>
-        <div class="gauge-bar-bg"><div class="gauge-bar-fill" id="barLux" style="width:0%;background:var(--dim)"></div></div>
+      <div class="g-card">
+        <div class="g-title">AMBIENT LUX</div>
+        <div class="g-num" id="gLux" style="color:var(--blue)">--</div>
+        <div class="g-unit">LUX</div>
+        <div class="g-track"><div class="g-fill" id="fLux" style="width:0%;background:var(--blue)"></div></div>
       </div>
-      <div class="gauge-card">
-        <div class="gauge-title">POWER DRAW</div>
-        <div class="gauge-val" id="gPower" style="color:var(--accent3);">--</div>
-        <div class="gauge-unit">WATTS</div>
-        <div class="gauge-bar-bg"><div class="gauge-bar-fill fill-red" id="barPower" style="width:0%"></div></div>
+      <div class="g-card">
+        <div class="g-title">POWER DRAW</div>
+        <div class="g-num" id="gPower" style="color:var(--red)">--</div>
+        <div class="g-unit">WATTS</div>
+        <div class="g-track"><div class="g-fill" id="fPower" style="width:0%;background:var(--red)"></div></div>
       </div>
     </div>
 
-    <!-- Chart -->
-    <div class="chart-wrap">
-      <div class="section-label">LIVE TRAFFIC · BRIGHTNESS TRACE (LAST 60s)</div>
-      <canvas id="trafficChart" height="90"></canvas>
+    <!-- Live chart -->
+    <div class="chart-card">
+      <div class="chart-head">
+        <div class="sec-head" style="margin:0;flex:1;">LIVE 60-SECOND TRACE</div>
+        <div class="chart-legend">
+          <div class="leg"><div class="leg-dot" style="background:var(--teal)"></div>Traffic</div>
+          <div class="leg"><div class="leg-dot" style="background:var(--amber)"></div>Brightness</div>
+          <div class="leg"><div class="leg-dot" style="background:var(--blue)"></div>Power %</div>
+        </div>
+      </div>
+      <canvas id="liveChart" height="100"></canvas>
     </div>
-
   </div>
 
-  <!-- RIGHT: Log + Score -->
-  <div class="panel">
-
-    <!-- Anomaly banner -->
-    <div class="anomaly-banner" id="anomalyBanner">
-      <div class="anomaly-title">⚠ CROWD ANOMALY</div>
-      <div class="anomaly-desc" id="anomalyDesc">Unusual density at node</div>
+  <!-- Right Sidebar -->
+  <div class="sidebar-right">
+    <div class="eff-card">
+      <div class="eff-num" id="effNum">0.00</div>
+      <div class="eff-lbl">kWh SAVED TODAY</div>
+      <div class="eff-sub" id="effPct">0% reduction</div>
     </div>
 
-    <!-- Efficiency score -->
-    <div class="eff-score">
-      <div class="eff-num" id="effScore">—</div>
-      <div class="eff-label">ENERGY SAVED TODAY</div>
-      <div class="eff-sublabel" id="effLabel">Calculating…</div>
-    </div>
-
-    <div class="section-label">SYSTEM LOG</div>
+    <div class="sec-head">EVENT LOG</div>
     <div id="logFeed"></div>
   </div>
+</div><!-- /pageLive -->
 
-</div>
 
+<!-- ════════════════════════════════════
+     PAGE 2: MONTHLY STATS
+════════════════════════════════════ -->
+<div id="pageMonthly" class="page stats-page">
+  <div class="stats-header">
+    <div class="stats-title">Monthly Statistics — FY 2024–25</div>
+    <div class="stats-sub">TRAFFIC PATTERNS · BRIGHTNESS ADJUSTMENTS · ENERGY CONSUMPTION · ANOMALY EVENTS</div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="stats-kpi-row">
+    <div class="kpi-card kpi-t">
+      <div class="kpi-label">TOTAL VEHICLES COUNTED</div>
+      <div class="kpi-val" id="mkpi1">--</div>
+      <div class="kpi-unit">VEHICLES THIS MONTH</div>
+      <div class="kpi-delta up" id="mkpi1d">↑ 0% vs last month</div>
+    </div>
+    <div class="kpi-card kpi-a">
+      <div class="kpi-label">ENERGY SAVED</div>
+      <div class="kpi-val" id="mkpi2">--</div>
+      <div class="kpi-unit">kWh SAVED VS ALWAYS-ON</div>
+      <div class="kpi-delta up" id="mkpi2d">↑ 0% efficiency gain</div>
+    </div>
+    <div class="kpi-card kpi-r">
+      <div class="kpi-label">ANOMALY EVENTS</div>
+      <div class="kpi-val" id="mkpi3">--</div>
+      <div class="kpi-unit">ALERTS DISPATCHED</div>
+      <div class="kpi-delta" id="mkpi3d">0 unresolved</div>
+    </div>
+    <div class="kpi-card kpi-b">
+      <div class="kpi-label">AVG BRIGHTNESS</div>
+      <div class="kpi-val" id="mkpi4">--</div>
+      <div class="kpi-unit">% MEAN ACROSS ALL NODES</div>
+      <div class="kpi-delta dn" id="mkpi4d">↓ 0% vs target</div>
+    </div>
+  </div>
+
+  <!-- Charts row 1 -->
+  <div class="charts-row" style="margin-bottom:16px;">
+    <div class="stat-chart-card big-chart">
+      <div class="sc-head">
+        <div><div class="sc-title">Daily Energy Consumption vs Baseline</div><div class="sc-sub">kWh · CURRENT MONTH · ALL NODES</div></div>
+        <div class="sc-badge tag-g">LIVE</div>
+      </div>
+      <canvas id="monthEnergyChart" height="130"></canvas>
+    </div>
+  </div>
+
+  <div class="charts-row" style="margin-bottom:16px;">
+    <div class="stat-chart-card">
+      <div class="sc-head">
+        <div><div class="sc-title">Hourly Traffic Density Profile</div><div class="sc-sub">AVG VEHICLES/MIN BY HOUR</div></div>
+      </div>
+      <canvas id="monthHourlyChart" height="130"></canvas>
+    </div>
+    <div class="stat-chart-card">
+      <div class="sc-head">
+        <div><div class="sc-title">Brightness Adjustment Distribution</div><div class="sc-sub">% OF TIME AT EACH LEVEL</div></div>
+      </div>
+      <canvas id="monthBrightChart" height="130"></canvas>
+    </div>
+  </div>
+
+  <!-- Heatmap -->
+  <div class="stat-chart-card" style="margin-bottom:16px;">
+    <div class="sc-head">
+      <div><div class="sc-title">Traffic Density Heatmap — Day × Hour</div><div class="sc-sub">CURRENT MONTH · DARKER = HIGHER DENSITY</div></div>
+    </div>
+    <div style="margin-bottom:8px;font-family:var(--font-mono);font-size:0.56rem;color:var(--muted);letter-spacing:0.12em;display:flex;gap:16px;">
+      <span>0h</span><span>3h</span><span>6h</span><span>9h</span><span>12h</span><span>15h</span><span>18h</span><span>21h</span>
+    </div>
+    <div class="heatmap-grid" id="heatmapGrid" style="grid-template-columns:repeat(24,1fr);"></div>
+  </div>
+</div><!-- /pageMonthly -->
+
+
+<!-- ════════════════════════════════════
+     PAGE 3: YEARLY ANALYTICS
+════════════════════════════════════ -->
+<div id="pageYearly" class="page stats-page">
+  <div class="stats-header">
+    <div class="stats-title">Yearly Analytics — 2024</div>
+    <div class="stats-sub">12-MONTH OVERVIEW · BESCOM BILLING IMPACT · CARBON FOOTPRINT · SAVINGS PROJECTION</div>
+  </div>
+
+  <div class="stats-kpi-row">
+    <div class="kpi-card kpi-t">
+      <div class="kpi-label">ANNUAL ENERGY SAVED</div>
+      <div class="kpi-val" id="ykpi1">--</div>
+      <div class="kpi-unit">MWh SAVED VS BASELINE</div>
+      <div class="kpi-delta up" id="ykpi1d">↑ 0% over target</div>
+    </div>
+    <div class="kpi-card kpi-a">
+      <div class="kpi-label">BESCOM BILL REDUCTION</div>
+      <div class="kpi-val" id="ykpi2">--</div>
+      <div class="kpi-unit">₹ LAKHS SAVED THIS YEAR</div>
+      <div class="kpi-delta up" id="ykpi2d">↑ 0% YoY</div>
+    </div>
+    <div class="kpi-card kpi-r">
+      <div class="kpi-label">CO₂ OFFSET</div>
+      <div class="kpi-val" id="ykpi3">--</div>
+      <div class="kpi-unit">TONNES CO₂ AVOIDED</div>
+      <div class="kpi-delta up" id="ykpi3d">↑ 0% green gain</div>
+    </div>
+    <div class="kpi-card kpi-b">
+      <div class="kpi-label">SYSTEM UPTIME</div>
+      <div class="kpi-val" id="ykpi4">--</div>
+      <div class="kpi-unit">% ANNUAL AVAILABILITY</div>
+      <div class="kpi-delta up" id="ykpi4d">SLA: 99.5%</div>
+    </div>
+  </div>
+
+  <!-- 12-month charts -->
+  <div class="charts-row" style="margin-bottom:16px;">
+    <div class="stat-chart-card big-chart">
+      <div class="sc-head">
+        <div><div class="sc-title">Monthly Energy Savings vs Consumption</div><div class="sc-sub">kWh · JAN–DEC 2024 · ALL 8 NODES</div></div>
+        <div class="sc-badge tag-y">2024</div>
+      </div>
+      <canvas id="yearEnergyChart" height="130"></canvas>
+    </div>
+  </div>
+
+  <div class="charts-row" style="margin-bottom:16px;">
+    <div class="stat-chart-card">
+      <div class="sc-head">
+        <div><div class="sc-title">Monthly Anomaly Events</div><div class="sc-sub">ALERTS BY MONTH · 2024</div></div>
+      </div>
+      <canvas id="yearAnomalyChart" height="130"></canvas>
+    </div>
+    <div class="stat-chart-card">
+      <div class="sc-head">
+        <div><div class="sc-title">Annual Traffic Volume by Zone</div><div class="sc-sub">MILLION VEHICLES · 2024</div></div>
+      </div>
+      <canvas id="yearZoneChart" height="130"></canvas>
+    </div>
+  </div>
+
+  <div class="charts-row" style="margin-bottom:16px;">
+    <div class="stat-chart-card">
+      <div class="sc-head">
+        <div><div class="sc-title">Cumulative BESCOM Savings</div><div class="sc-sub">₹ LAKHS · RUNNING TOTAL 2024</div></div>
+      </div>
+      <canvas id="yearSavingsChart" height="130"></canvas>
+    </div>
+    <div class="stat-chart-card">
+      <div class="sc-head">
+        <div><div class="sc-title">Avg Brightness by Season</div><div class="sc-sub">% MEAN BRIGHTNESS · QUARTERLY</div></div>
+      </div>
+      <canvas id="yearBrightSeasonChart" height="130"></canvas>
+    </div>
+  </div>
+</div><!-- /pageYearly -->
+
+
+<!-- ════════════════════════════════════
+     PAGE 4: ZONE REPORT
+════════════════════════════════════ -->
+<div id="pageZones" class="page stats-page">
+  <div class="stats-header">
+    <div class="stats-title">Zone Performance Report</div>
+    <div class="stats-sub">ALL 8 NODES · COMPARATIVE METRICS · YTD</div>
+  </div>
+
+  <div class="stats-kpi-row" style="margin-bottom:24px;">
+    <div class="kpi-card kpi-t">
+      <div class="kpi-label">BEST EFFICIENCY NODE</div>
+      <div class="kpi-val" style="font-size:1.1rem;color:var(--teal)" id="zBest">USP-JP-005</div>
+      <div class="kpi-unit">JP NAGAR</div>
+      <div class="kpi-delta up">42% reduction</div>
+    </div>
+    <div class="kpi-card kpi-a">
+      <div class="kpi-label">HIGHEST TRAFFIC NODE</div>
+      <div class="kpi-val" style="font-size:1.1rem;color:var(--amber)" id="zBusiest">USP-EC-008</div>
+      <div class="kpi-unit">ELECTRONIC CITY</div>
+      <div class="kpi-delta warn">78 avg veh/min</div>
+    </div>
+    <div class="kpi-card kpi-r">
+      <div class="kpi-label">MOST ALERTS NODE</div>
+      <div class="kpi-val" style="font-size:1.1rem;color:var(--red)" id="zAlerts">USP-IN-003</div>
+      <div class="kpi-unit">INDIRANAGAR</div>
+      <div class="kpi-delta bad">14 events MTD</div>
+    </div>
+    <div class="kpi-card kpi-b">
+      <div class="kpi-label">TOTAL SYSTEM SAVING</div>
+      <div class="kpi-val" id="zTotal">--</div>
+      <div class="kpi-unit">kWh SAVED THIS MONTH</div>
+      <div class="kpi-delta up">↑ vs 0 always-on</div>
+    </div>
+  </div>
+
+  <!-- Zone comparison chart -->
+  <div class="stat-chart-card" style="margin-bottom:16px;">
+    <div class="sc-head">
+      <div><div class="sc-title">Node-by-Node Energy Efficiency Comparison</div><div class="sc-sub">% SAVING VS ALWAYS-ON BASELINE · YTD</div></div>
+    </div>
+    <canvas id="zoneCompareChart" height="120"></canvas>
+  </div>
+
+  <!-- Zone table -->
+  <div class="stat-chart-card">
+    <div class="sc-head">
+      <div><div class="sc-title">Full Zone Data Table</div><div class="sc-sub">YTD METRICS PER NODE</div></div>
+    </div>
+    <table class="ztable" id="zoneTable">
+      <thead>
+        <tr>
+          <th>NODE ID</th><th>ZONE</th><th>AVG TRAFFIC</th><th>AVG BRIGHT %</th>
+          <th>ENERGY SAVED kWh</th><th>₹ SAVINGS</th><th>ANOMALIES</th><th>STATUS</th>
+        </tr>
+      </thead>
+      <tbody id="zoneTbody"></tbody>
+    </table>
+  </div>
+</div><!-- /pageZones -->
+
+
+<!-- ════════════════════ SCRIPT ════════════════════ -->
 <script>
-/* ══════════════════════════════════════════════
-   URJA-STAMBH — Smart Street Pole Controller
-   Edge-AI Traffic-Responsive Lighting System
-   BBMP / Smart Cities Mission 2.0
-   ══════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════
+   URJA-STAMBH v2 — Full Analytics Dashboard
+   Smart Cities Mission 2.0 · BBMP/BESCOM · Bengaluru
+   ════════════════════════════════════════════════ */
 
-// ── State ──────────────────────────────────────
+// ── Poles ─────────────────────────────────────
 const POLES = [
-  { id: 'USP-MG-001', zone: 'MG Road',      alert: false },
-  { id: 'USP-KR-002', zone: 'Koramangala',  alert: false },
-  { id: 'USP-IN-003', zone: 'Indiranagar',  alert: true  },
-  { id: 'USP-WF-004', zone: 'Whitefield',   alert: false },
-  { id: 'USP-JP-005', zone: 'JP Nagar',     alert: false },
-  { id: 'USP-YS-006', zone: 'Yeshwanthpur', alert: false },
-  { id: 'USP-HB-007', zone: 'Hebbal',       alert: false },
-  { id: 'USP-EC-008', zone: 'Electronic City', alert: false },
+  { id:'USP-MG-001', zone:'MG Road',          baseTraffic:70 },
+  { id:'USP-KR-002', zone:'Koramangala',       baseTraffic:62 },
+  { id:'USP-IN-003', zone:'Indiranagar',       baseTraffic:68 },
+  { id:'USP-WF-004', zone:'Whitefield',        baseTraffic:75 },
+  { id:'USP-JP-005', zone:'JP Nagar',          baseTraffic:45 },
+  { id:'USP-YS-006', zone:'Yeshwanthpur',      baseTraffic:55 },
+  { id:'USP-HB-007', zone:'Hebbal',            baseTraffic:60 },
+  { id:'USP-EC-008', zone:'Electronic City',   baseTraffic:78 },
 ];
 
-const state = {
-  selectedPole: 0,
-  mode: 'auto',          // auto | manual | night | emergency
-  autoDim: true,
-  ambient: true,
-  anomalyDetection: true,
-  sliderOverride: 50,
-  traffic: 0,            // vehicles/min
-  lux: 0,
-  brightness: 0,
-  power: 0,
-  savedToday: 0,
-  chartTraffic: new Array(60).fill(0),
-  chartBrightness: new Array(60).fill(0),
-  anomalyActive: false,
-  anomalyCooldown: 0,
-  tick: 0,
+// ── App State ──────────────────────────────────
+const S = {
+  sel: 0, mode: 'auto',
+  autoDim: true, ambient: true, anomalyDet: true,
+  sliderVal: 50,
+  traffic: 0, lux: 0, brightness: 0, power: 0,
+  savedWh: 0, tick: 0,
+  anomActive: false, anomCooldown: 0,
+  liveTraffic:   new Array(60).fill(0),
+  liveBright:    new Array(60).fill(0),
+  livePower:     new Array(60).fill(0),
+  poleData: POLES.map(() => ({ traffic:0, bright:0, alerted:false })),
 };
 
-// ── DOM refs ───────────────────────────────────
-const $ = id => document.getElementById(id);
-const logFeed   = $('logFeed');
-const anomBanner = $('anomalyBanner');
-
-// ── Clock ──────────────────────────────────────
-function updateClock() {
-  const now = new Date();
-  $('clock').textContent = now.toLocaleTimeString('en-IN', { hour12: false });
+// ── Seeded pseudo-random for stable historical data ──
+function seededRand(seed) {
+  let s = seed;
+  return function() {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
 }
-setInterval(updateClock, 1000);
-updateClock();
 
-// ── Pole list render ───────────────────────────
-function renderPoleList() {
-  const list = $('poleList');
+// ── Historical data generation ─────────────────
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function genMonthlyData() {
+  const r = seededRand(42);
+  // Daily energy consumed (kWh) & baseline for current month (30 days, 8 nodes, 150W)
+  const baselinePerDay = 150 * 8 * 24 / 1000;  // 28.8 kWh/day full
+  const days = [];
+  for (let d = 0; d < 30; d++) {
+    const consumed = baselinePerDay * (0.52 + r() * 0.18);
+    days.push({ day: d+1, consumed: +consumed.toFixed(2), baseline: +baselinePerDay.toFixed(2) });
+  }
+  // Hourly traffic avg
+  const hourly = [];
+  for (let h = 0; h < 24; h++) {
+    let v;
+    if (h >= 8 && h <= 10) v = 70 + r()*15;
+    else if (h >= 17 && h <= 20) v = 78 + r()*14;
+    else if (h >= 1 && h <= 5) v = 4 + r()*6;
+    else v = 30 + r()*25;
+    hourly.push(+v.toFixed(1));
+  }
+  // Brightness distribution buckets: <20, 20-40, 40-60, 60-80, 80-100
+  const brightDist = [18, 22, 28, 20, 12].map(x => +(x + (r()-0.5)*4).toFixed(1));
+  // KPIs
+  const totalSaved = days.reduce((s,d) => s + (d.baseline - d.consumed), 0);
+  return { days, hourly, brightDist, totalSaved };
+}
+
+function genYearlyData() {
+  const r = seededRand(99);
+  const baselinePerMonth = 150 * 8 * 24 * 30 / 1000;
+  const months = MONTHS.map((m, i) => {
+    const factor = 0.50 + r()*0.18 + (i >= 5 && i <= 8 ? 0.05 : 0); // monsoon slightly less dim
+    const consumed = +(baselinePerMonth * factor).toFixed(1);
+    const anomalies = Math.floor(5 + r()*18);
+    return { month: m, consumed, baseline: +baselinePerMonth.toFixed(1), anomalies };
+  });
+  const yearSaving = months.reduce((s,m) => s + (m.baseline - m.consumed), 0);
+  const inrPerKWh = 8.5;
+  const bescomSave = +(yearSaving * inrPerKWh / 100000).toFixed(2);
+  const co2 = +(yearSaving * 0.82 / 1000).toFixed(2);
+  // Quarterly avg brightness
+  const qBright = [
+    [58, 62, 60, 59],  // Q1
+    [55, 52, 48, 50],  // Q2 (summer peak = more auto-dim at night)
+    [53, 55, 57, 56],  // Q3
+    [62, 65, 66, 63],  // Q4
+  ].map(q => +(q.reduce((a,b)=>a+b,0)/4).toFixed(1));
+  return { months, yearSaving: +yearSaving.toFixed(1), bescomSave, co2, qBright };
+}
+
+function genZoneData() {
+  const r = seededRand(17);
+  return POLES.map(p => {
+    const avgT = +(p.baseTraffic + (r()-0.5)*10).toFixed(1);
+    const avgB = +(20 + avgT * 0.78 + r()*10).toFixed(1);
+    const kWh  = +(150 * 24 * 30 / 1000 * (1 - avgB/100) * 0.9).toFixed(1);
+    const inr  = +(kWh * 8.5).toFixed(0);
+    const anom = Math.floor(r()*20);
+    return { ...p, avgT, avgB, kWh, inr, anom };
+  });
+}
+
+const MD = genMonthlyData();
+const YD = genYearlyData();
+const ZD = genZoneData();
+
+// ── Clock ───────────────────────────────────────
+function clock() {
+  document.getElementById('hdrClock').textContent =
+    new Date().toLocaleTimeString('en-IN', { hour12:false });
+}
+setInterval(clock, 1000); clock();
+
+// ── Nav ────────────────────────────────────────
+document.querySelectorAll('.nav-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => {
+      p.classList.remove('active');
+      p.style.display = 'none';
+    });
+    tab.classList.add('active');
+    const pg = document.getElementById(tab.dataset.page);
+    pg.classList.add('active');
+    pg.style.display = tab.dataset.page === 'pageLive' ?
+      'grid' : 'block';
+    if (tab.dataset.page !== 'pageLive') renderStatCharts(tab.dataset.page);
+  });
+});
+
+// ── Pole List ───────────────────────────────────
+function renderPoles() {
+  const list = document.getElementById('poleList');
   list.innerHTML = '';
   POLES.forEach((p, i) => {
+    const d = S.poleData[i];
     const div = document.createElement('div');
-    div.className = 'pole-card' + (i === state.selectedPole ? ' active' : '') + (p.alert ? ' alert' : '');
+    div.className = 'pcard' + (i === S.sel ? ' active' : '') + (d.alerted ? ' alerted' : '');
     div.innerHTML = `
-      <div class="pole-card-header">
-        <span class="pole-id">${p.id}</span>
-        <span class="badge ${p.alert ? 'badge-red' : 'badge-green'}">${p.alert ? 'ALERT' : 'NOMINAL'}</span>
+      <div class="pcard-accent"></div>
+      <div class="pcard-top">
+        <span class="pcard-id">${p.id}</span>
+        <span class="tag ${d.alerted ? 'tag-r' : d.traffic > 70 ? 'tag-y' : 'tag-g'}">${d.alerted ? 'ALERT' : d.traffic > 70 ? 'BUSY' : 'NOMINAL'}</span>
       </div>
-      <div class="mini-bar-row">
-        <span class="mini-label">TRAFFIC</span>
-        <div class="mini-bar-bg"><div class="mini-bar-fill fill-yellow" style="width:${p.trafficPct||0}%"></div></div>
-        <span class="mini-val">${Math.round(p.traffic||0)}</span>
+      <div class="mbar">
+        <span class="mbar-lbl">TRAFFIC</span>
+        <div class="mbar-track"><div class="mbar-fill" style="width:${d.traffic}%;background:var(--teal)"></div></div>
+        <span class="mbar-num">${Math.round(d.traffic)}</span>
       </div>
-      <div class="mini-bar-row">
-        <span class="mini-label">BRIGHT</span>
-        <div class="mini-bar-bg"><div class="mini-bar-fill fill-green" style="width:${p.bright||0}%"></div></div>
-        <span class="mini-val">${Math.round(p.bright||0)}%</span>
+      <div class="mbar">
+        <span class="mbar-lbl">BRIGHT</span>
+        <div class="mbar-track"><div class="mbar-fill" style="width:${d.bright}%;background:var(--amber)"></div></div>
+        <span class="mbar-num">${Math.round(d.bright)}%</span>
       </div>`;
     div.onclick = () => selectPole(i);
-    div.addEventListener('keydown', e => { if (e.key === 'Enter') selectPole(i); });
     div.tabIndex = 0;
+    div.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') selectPole(i); });
     list.appendChild(div);
   });
 }
 
 function selectPole(i) {
-  state.selectedPole = i;
-  $('selectedLabel').textContent = POLES[i].id;
-  renderPoleList();
-  addLog(`Selected node ${POLES[i].id} (${POLES[i].zone})`, 'ok');
+  S.sel = i;
+  document.getElementById('selLabel').textContent = POLES[i].id;
+  renderPoles();
+  addLog(`Selected ${POLES[i].id} (${POLES[i].zone})`, 'ok');
 }
 
-// ── Mode control ───────────────────────────────
+// ── Mode ───────────────────────────────────────
 function setMode(m) {
-  state.mode = m;
-  ['btnAuto','btnManual','btnNight','btnEmergency'].forEach(id => $(id).classList.remove('active'));
-  const map = { auto:'btnAuto', manual:'btnManual', night:'btnNight', emergency:'btnEmergency' };
-  $(map[m]).classList.add('active');
+  S.mode = m;
+  ['auto','manual','night','emergency'].forEach(k => {
+    const el = document.getElementById('mb-'+k);
+    if (el) el.classList.toggle('active', k === m);
+  });
   const msgs = {
-    auto: 'AUTO MODE activated — AI adaptive control',
+    auto: 'AUTO MODE — AI adaptive control enabled',
     manual: 'MANUAL OVERRIDE — brightness locked to slider',
-    night: 'NIGHT PROTOCOL — minimum safe illumination',
-    emergency: 'EMERGENCY FULL — 100% brightness forced'
+    night: 'NIGHT PROTOCOL — 20% safe minimum enforced',
+    emergency: 'EMERGENCY FULL — 100% brightness forced on'
   };
   addLog(msgs[m], m === 'emergency' ? 'alert' : 'ok');
-  if (m === 'emergency') {
-    $('brightnessSlider').value = 100;
-    $('sliderDisplay').textContent = '100%';
-  }
 }
 
-// ── Toggle features ────────────────────────────
-function toggleFeature(feat) {
-  state[feat] = !state[feat];
-  const map = { autoDim:'toggleAutoDim', ambient:'toggleAmbient', anomaly:'toggleAnomaly' };
-  const el = $(map[feat]);
+// ── Toggle ─────────────────────────────────────
+function togFeat(f) {
+  const map = { autoDim:'sw-autoDim', ambient:'sw-ambient', anomaly:'sw-anomalyDet' };
+  // anomaly toggle key fix
+  const stateKey = f === 'anomaly' ? 'anomalyDet' : f;
+  S[stateKey] = !S[stateKey];
+  const swId = f === 'anomaly' ? 'sw-anomaly' : 'sw-'+f;
+  const el = document.getElementById(swId);
   if (el) {
-    el.classList.toggle('on', state[feat]);
-    el.setAttribute('aria-checked', state[feat]);
+    el.classList.toggle('on', S[stateKey]);
+    el.setAttribute('aria-checked', S[stateKey]);
   }
-  addLog(`${feat.toUpperCase()} ${state[feat] ? 'ENABLED' : 'DISABLED'}`, state[feat] ? 'ok' : 'warn');
+  addLog(`${f.toUpperCase()} ${S[stateKey] ? 'ENABLED' : 'DISABLED'}`, S[stateKey] ? 'ok' : 'warn');
 }
+
+// Keyboard support for toggles
+document.querySelectorAll('.sw').forEach(el => {
+  el.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); }
+  });
+});
 
 // ── Slider ─────────────────────────────────────
-function onSliderInput(val) {
-  state.sliderOverride = parseInt(val, 10);
-  $('sliderDisplay').textContent = state.mode === 'auto' ? 'AUTO' : `${val}%`;
-  if (state.mode === 'auto') {
-    addLog('Slider moved in AUTO mode — switch to MANUAL to override', 'warn');
+function onSlider(v) {
+  S.sliderVal = +v;
+  const disp = document.getElementById('sliderDisp');
+  if (S.mode === 'auto') {
+    disp.textContent = 'AUTO';
+    addLog('Move to MANUAL OVERRIDE to use slider', 'warn');
+  } else {
+    disp.textContent = v + '%';
   }
 }
 
 // ── Brightness computation ─────────────────────
-function computeBrightness(traffic, lux) {
-  if (state.mode === 'emergency') return 100;
-  if (state.mode === 'night') return 20;
-  if (state.mode === 'manual') return state.sliderOverride;
+function calcBright(traffic, lux) {
+  if (S.mode === 'emergency') return 100;
+  if (S.mode === 'night')     return 20;
+  if (S.mode === 'manual')    return Math.max(10, S.sliderVal);
 
-  // AUTO: base from traffic density (0–100 veh/min → 20–100%)
-  let bright = 20 + (traffic / 100) * 80;
-  bright = Math.min(100, Math.max(20, bright));
+  let b = 20 + (traffic / 100) * 80;
+  b = Math.min(100, Math.max(20, b));
 
-  // Ambient compensation: high lux (daytime) → less need for artificial light
-  if (state.ambient) {
-    // lux 0–1000: dim factor 0→1 (night needs full, day can cut back)
-    const luxFactor = Math.max(0, 1 - lux / 1000);
-    bright = bright * luxFactor;
-    bright = Math.max(state.autoDim ? 15 : 30, bright);
+  if (S.ambient) {
+    const lf = Math.max(0, 1 - lux / 1000);
+    b *= lf;
+    b = Math.max(S.autoDim ? 15 : 30, b);
   }
-
-  if (state.autoDim) {
-    // Extra dim if road is truly empty (< 5 veh/min)
-    if (traffic < 5) bright = Math.min(bright, 25);
-  }
-
-  return Math.round(Math.min(100, Math.max(10, bright)));
+  if (S.autoDim && traffic < 5) b = Math.min(b, 25);
+  return Math.round(Math.min(100, Math.max(10, b)));
 }
 
 // ── Simulation tick ────────────────────────────
-function simulateTick() {
-  state.tick++;
-  const t = state.tick;
-
-  // Simulate traffic density with realistic variation
-  const hour = new Date().getHours();
-  const baseDensity = (() => {
-    if (hour >= 8 && hour <= 10) return 75;   // morning peak
-    if (hour >= 17 && hour <= 20) return 85;  // evening peak
-    if (hour >= 1 && hour <= 5) return 5;     // dead hours
-    return 35;
-  })();
-
-  // Add noise + occasional spikes
-  const spike = Math.random() < 0.05 ? 30 : 0;
-  state.traffic = Math.max(0, Math.min(100,
-    baseDensity + spike + (Math.random() - 0.5) * 18
-  ));
-
-  // Ambient lux: simulate day/night
-  const dawn = 6, dusk = 19;
+function tick() {
+  S.tick++;
   const h = new Date().getHours() + new Date().getMinutes()/60;
+
+  // Traffic
+  let base;
+  if (h >= 8 && h <= 10) base = 75;
+  else if (h >= 17 && h <= 20) base = 82;
+  else if (h >= 1 && h <= 5) base = 5;
+  else base = 35;
+
+  const spike = Math.random() < 0.04 ? 28 : 0;
+  S.traffic = Math.max(0, Math.min(100, base + spike + (Math.random()-.5)*16));
+
+  // Lux
+  const dawn=6, dusk=19;
   const daylight = h >= dawn && h <= dusk;
-  state.lux = daylight
-    ? Math.max(0, 800 * Math.sin(Math.PI * (h - dawn) / (dusk - dawn)) + (Math.random() - 0.5) * 80)
-    : Math.max(0, 5 + Math.random() * 10);
+  S.lux = daylight
+    ? Math.max(0, 820 * Math.sin(Math.PI*(h-dawn)/(dusk-dawn)) + (Math.random()-.5)*70)
+    : Math.max(0, 4 + Math.random()*8);
 
-  state.brightness = computeBrightness(state.traffic, state.lux);
+  S.brightness = calcBright(S.traffic, S.lux);
+  S.power = Math.round(150 * S.brightness / 100 * 0.93);
 
-  // Power: max 150W LED, scales with brightness
-  state.power = Math.round(150 * (state.brightness / 100) * 0.92);
+  // Saved energy
+  S.savedWh += (150 - S.power) / 3600;
 
-  // Energy saved vs always-on 150W
-  const savedW = 150 - state.power;
-  state.savedToday += savedW / 3600; // Wh per second tick
-  const savedKWh = (state.savedToday / 1000).toFixed(2);
-
-  // Update pole sim data
+  // Per-pole sim
   POLES.forEach((p, i) => {
-    const variation = (Math.random() - 0.5) * 20;
-    p.traffic = Math.max(0, Math.min(100, (i === state.selectedPole ? state.traffic : baseDensity + variation)));
-    p.trafficPct = (p.traffic / 100) * 100;
-    p.bright = i === state.selectedPole ? state.brightness :
-      computeBrightness(p.traffic, state.lux);
+    const v = (Math.random()-.5)*20;
+    const t = i === S.sel ? S.traffic : Math.max(0, Math.min(100, p.baseTraffic + v));
+    S.poleData[i].traffic = t;
+    S.poleData[i].bright = i === S.sel ? S.brightness : calcBright(t, S.lux);
   });
 
-  // Anomaly detection
-  if (state.anomalyDetection && state.anomalyCooldown <= 0) {
-    if (state.traffic > 88) {
-      triggerAnomaly(`Surge: ${Math.round(state.traffic)} veh/min at ${POLES[state.selectedPole].id}`);
-    } else if (state.traffic < 3 && hour >= 8 && hour <= 22) {
-      triggerAnomaly(`Abnormal road clearance — possible incident near ${POLES[state.selectedPole].id}`);
-    }
+  // Anomaly
+  if (S.anomalyDet && S.anomCooldown <= 0) {
+    if (S.traffic > 90) raiseAnomaly(`Density surge: ${Math.round(S.traffic)} veh/min at ${POLES[S.sel].id}`);
+    else if (S.traffic < 3 && h >= 8 && h <= 22) raiseAnomaly(`Abnormal clearance — possible incident near ${POLES[S.sel].id}`);
   }
-  if (state.anomalyCooldown > 0) state.anomalyCooldown--;
+  if (S.anomCooldown > 0) S.anomCooldown--;
 
-  // Update chart data
-  state.chartTraffic.push(state.traffic);
-  state.chartBrightness.push(state.brightness);
-  state.chartTraffic.shift();
-  state.chartBrightness.shift();
+  // Chart data
+  S.liveTraffic.push(S.traffic); S.liveTraffic.shift();
+  S.liveBright.push(S.brightness); S.liveBright.shift();
+  S.livePower.push(S.power / 150 * 100); S.livePower.shift();
 
-  // Render
-  updateGauges(savedKWh);
-  updatePoleVisual();
-  renderPoleList();
-  drawChart();
+  updateGauges();
+  updatePoleViz();
+  renderPoles();
+  drawLiveChart();
 
-  // Occasional log entries
-  if (t % 12 === 0) {
-    const lvl = state.traffic > 70 ? 'warn' : state.traffic < 5 ? 'warn' : null;
-    if (lvl) addLog(`${POLES[state.selectedPole].id}: traffic ${Math.round(state.traffic)} v/min → ${state.brightness}% bright`, lvl);
+  // Periodic log
+  if (S.tick % 10 === 0) {
+    const lvl = S.traffic > 70 ? 'warn' : S.traffic < 5 ? 'warn' : null;
+    if (lvl) addLog(`${POLES[S.sel].id}: ${Math.round(S.traffic)} veh/min → ${S.brightness}% bright`, lvl);
   }
-  if (t % 30 === 0) {
-    addLog(`Power draw: ${state.power}W · Saved today: ${savedKWh}kWh`, 'ok');
-  }
+  if (S.tick % 30 === 0) addLog(`Power: ${S.power}W · Saved: ${(S.savedWh/1000).toFixed(3)}kWh`, 'ok');
+
+  // Update zone total KPI
+  document.getElementById('zTotal').textContent =
+    (ZD.reduce((s,z)=>s+z.kWh,0) + S.savedWh/1000).toFixed(1);
 }
 
-function triggerAnomaly(desc) {
-  if (state.anomalyActive) return;
-  state.anomalyActive = true;
-  state.anomalyCooldown = 40;
-  anomBanner.style.display = 'block';
-  $('anomalyDesc').textContent = desc;
-  POLES[state.selectedPole].alert = true;
+function raiseAnomaly(desc) {
+  if (S.anomActive) return;
+  S.anomActive = true; S.anomCooldown = 45;
+  S.poleData[S.sel].alerted = true;
+  const b = document.getElementById('anomBanner');
+  b.style.display = 'block';
+  document.getElementById('anomDesc').textContent = desc;
   addLog('⚠ ANOMALY: ' + desc, 'alert');
   setTimeout(() => {
-    anomBanner.style.display = 'none';
-    POLES[state.selectedPole].alert = false;
-    state.anomalyActive = false;
-    addLog('Anomaly cleared — monitoring resumed', 'ok');
-    renderPoleList();
-  }, 8000);
+    b.style.display = 'none';
+    S.poleData[S.sel].alerted = false;
+    S.anomActive = false;
+    addLog('Anomaly resolved — normal monitoring resumed', 'ok');
+    renderPoles();
+  }, 9000);
 }
 
 // ── Gauges ─────────────────────────────────────
-function updateGauges(savedKWh) {
-  $('gBright').textContent = state.brightness;
-  $('barBright').style.width = state.brightness + '%';
+function updateGauges() {
+  const set = (id, fid, val, max) => {
+    document.getElementById(id).textContent = Math.round(val);
+    document.getElementById(fid).style.width = Math.min(100, val/max*100) + '%';
+  };
+  set('gBright',  'fBright',  S.brightness, 100);
+  set('gTraffic', 'fTraffic', S.traffic,    100);
+  set('gLux',     'fLux',     S.lux,        1000);
+  set('gPower',   'fPower',   S.power,      150);
 
-  $('gTraffic').textContent = Math.round(state.traffic);
-  $('barTraffic').style.width = (state.traffic) + '%';
+  const savedKWh = (S.savedWh / 1000).toFixed(3);
+  document.getElementById('effNum').textContent = savedKWh;
+  const pct = ((150 - S.power) / 150 * 100).toFixed(0);
+  document.getElementById('effPct').textContent = `${pct}% reduction vs always-on`;
 
-  $('gLux').textContent = Math.round(state.lux);
-  $('barLux').style.width = Math.min(100, state.lux / 10) + '%';
-
-  $('gPower').textContent = state.power;
-  $('barPower').style.width = (state.power / 150 * 100) + '%';
-
-  $('effScore').textContent = savedKWh + ' kWh';
-  const pct = Math.min(100, ((150 - state.power) / 150 * 100)).toFixed(0);
-  $('effLabel').textContent = `${pct}% reduction vs always-on`;
-
-  $('sliderDisplay').textContent = state.mode === 'auto' ? 'AUTO' : `${$('brightnessSlider').value}%`;
+  const d = document.getElementById('sliderDisp');
+  if (S.mode === 'auto') d.textContent = 'AUTO';
+  else d.textContent = S.sliderVal + '%';
 }
 
-// ── Pole visual ────────────────────────────────
-function updatePoleVisual() {
-  const b = state.brightness / 100;
-  const r = Math.round(255 * b);
-  const g = Math.round(230 * b + 25 * (1 - b));
-  const bg = `rgb(${r},${g},${Math.round(100 * (1 - b))})`;
-  $('poleVizLamp').style.background = `rgba(${r},${g},${Math.round(100*(1-b))},0.3)`;
-  $('poleVizLamp').style.boxShadow = b > 0.3 ? `0 0 ${20*b}px rgba(${r},${g},0,${b*0.8})` : 'none';
-  $('poleVizInner').style.opacity = 0.1 + b * 0.9;
-  $('poleVizInner').style.boxShadow = b > 0.3 ? `0 0 ${30*b}px rgba(255,255,255,${b})` : 'none';
+// ── Pole Visual ────────────────────────────────
+function updatePoleViz() {
+  const b = S.brightness / 100;
+  const lamp = document.getElementById('vizLamp');
+  const lens = document.getElementById('vizLens');
+  const cone = document.getElementById('vizCone');
 
-  const cone = $('lightCone');
-  cone.style.opacity = b * 0.35;
-  cone.style.borderTopWidth = Math.round(20 + b * 120) + 'px';
-  cone.style.borderTopColor = `rgba(255,255,200,${b*0.7})`;
+  const r = Math.round(245*b + 30*(1-b));
+  const g = Math.round(166*b + 40*(1-b));
+  lamp.style.background   = `rgba(${r},${g},10,${0.15 + b*0.35})`;
+  lamp.style.boxShadow    = b > 0.25 ? `0 0 ${22*b}px rgba(${r},${g},10,${b*0.7})` : 'none';
+  lens.style.opacity      = 0.08 + b * 0.92;
+  lens.style.boxShadow    = b > 0.2 ? `0 0 ${28*b}px rgba(255,255,240,${b*0.9})` : 'none';
+  cone.style.opacity      = b * 0.3;
+  cone.style.borderTopWidth = Math.round(15 + b*130) + 'px';
+  cone.style.borderTopColor = `rgba(255,255,180,${b*0.6})`;
 }
 
-// ── Chart ──────────────────────────────────────
-let chartCtx;
-function initChart() {
-  const canvas = $('trafficChart');
-  chartCtx = canvas.getContext('2d');
+// ── Live Chart ─────────────────────────────────
+let liveCtx;
+function initLiveChart() {
+  const c = document.getElementById('liveChart');
+  liveCtx = c.getContext('2d');
 }
 
-function drawChart() {
-  const canvas = $('trafficChart');
-  const ctx = chartCtx;
-  const W = canvas.offsetWidth;
-  const H = canvas.offsetHeight;
-  canvas.width = W;
-  canvas.height = H;
+function drawLiveChart() {
+  const canvas = document.getElementById('liveChart');
+  const W = canvas.offsetWidth, H = canvas.offsetHeight || 100;
+  canvas.width = W; canvas.height = H;
+  const ctx = liveCtx;
+  ctx.clearRect(0,0,W,H);
+  const pd = {t:8,b:18,l:6,r:6};
+  const cW = W-pd.l-pd.r, cH = H-pd.t-pd.b;
+  const n = S.liveTraffic.length;
+  const dx = cW/(n-1);
 
-  ctx.clearRect(0, 0, W, H);
-
-  const pad = { t: 8, b: 20, l: 8, r: 8 };
-  const cW = W - pad.l - pad.r;
-  const cH = H - pad.t - pad.b;
-  const pts = state.chartTraffic.length;
-  const dx = cW / (pts - 1);
-
-  // Grid lines
-  ctx.strokeStyle = '#0c2830';
-  ctx.lineWidth = 1;
-  for (let i = 0; i <= 4; i++) {
-    const y = pad.t + cH - (i / 4) * cH;
-    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + cW, y); ctx.stroke();
+  // Grid
+  ctx.strokeStyle = '#1a2e45'; ctx.lineWidth = 1;
+  for (let i=0;i<=4;i++) {
+    const y = pd.t + cH - (i/4)*cH;
+    ctx.beginPath(); ctx.moveTo(pd.l,y); ctx.lineTo(pd.l+cW,y); ctx.stroke();
   }
 
-  function drawLine(data, color, maxVal) {
-    ctx.beginPath();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1.5;
-    ctx.lineJoin = 'round';
-    data.forEach((v, i) => {
-      const x = pad.l + i * dx;
-      const y = pad.t + cH - (v / maxVal) * cH;
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  function drawSeries(data, color, maxV) {
+    ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
+    data.forEach((v,i) => {
+      const x = pd.l + i*dx;
+      const y = pd.t + cH - (v/maxV)*cH;
+      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
     });
     ctx.stroke();
-
-    // Fill
-    ctx.lineTo(pad.l + (pts-1) * dx, pad.t + cH);
-    ctx.lineTo(pad.l, pad.t + cH);
-    ctx.closePath();
-    const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t + cH);
-    grad.addColorStop(0, color.replace(')', ',0.25)').replace('rgb', 'rgba'));
-    grad.addColorStop(1, color.replace(')', ',0)').replace('rgb', 'rgba'));
-    ctx.fillStyle = grad;
-    ctx.fill();
+    ctx.lineTo(pd.l+(n-1)*dx, pd.t+cH);
+    ctx.lineTo(pd.l, pd.t+cH); ctx.closePath();
+    const g = ctx.createLinearGradient(0,pd.t,0,pd.t+cH);
+    const c0 = color.replace(')',',0.2)').replace('rgb','rgba');
+    const c1 = color.replace(')',',0)').replace('rgb','rgba');
+    g.addColorStop(0,c0); g.addColorStop(1,c1);
+    ctx.fillStyle = g; ctx.fill();
   }
 
-  drawLine(state.chartTraffic, 'rgb(245,166,35)', 100);
-  drawLine(state.chartBrightness, 'rgb(0,229,192)', 100);
+  drawSeries(S.liveTraffic, 'rgb(38,217,176)', 100);
+  drawSeries(S.liveBright,  'rgb(245,166,35)',  100);
+  drawSeries(S.livePower,   'rgb(77,159,255)',  100);
 
-  // Labels
-  ctx.font = '9px Share Tech Mono, monospace';
-  ctx.fillStyle = '#3a6472';
-  ctx.fillText('TRAFFIC (veh/min)', pad.l + 4, pad.t + 11);
-  ctx.fillStyle = '#00e5c088';
-  ctx.fillText('BRIGHTNESS %', pad.l + 120, pad.t + 11);
+  // X labels
+  ctx.font = '9px Syne Mono, monospace'; ctx.fillStyle = '#4a6a82';
+  ctx.fillText('0s', pd.l, H-3);
+  ctx.fillText('60s', pd.l+cW-20, H-3);
 }
 
 // ── Log ────────────────────────────────────────
-function addLog(msg, type = '') {
-  const now = new Date().toLocaleTimeString('en-IN', { hour12: false });
-  const div = document.createElement('div');
-  div.className = 'log-entry';
-  div.innerHTML = `<span class="log-time">${now}</span><span class="log-msg ${type}">${msg}</span>`;
-  logFeed.insertBefore(div, logFeed.firstChild);
-  while (logFeed.children.length > 40) logFeed.removeChild(logFeed.lastChild);
+function addLog(msg, type='') {
+  const el = document.getElementById('logFeed');
+  const t = new Date().toLocaleTimeString('en-IN',{hour12:false});
+  const d = document.createElement('div');
+  d.className = 'log-item';
+  d.innerHTML = `<span class="log-t">${t}</span><span class="log-m ${type}">${msg}</span>`;
+  el.insertBefore(d, el.firstChild);
+  while (el.children.length > 45) el.removeChild(el.lastChild);
 }
 
-// ── Keyboard accessibility for toggles ─────────
-document.querySelectorAll('.toggle-switch').forEach(el => {
-  el.addEventListener('keydown', e => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      el.click();
-    }
+// ══════════════════════════════════════════════
+//  STATIC CHART RENDERERS (canvas 2D, no deps)
+// ══════════════════════════════════════════════
+function renderStatCharts(pageId) {
+  if (pageId === 'pageMonthly') renderMonthlyCharts();
+  else if (pageId === 'pageYearly') renderYearlyCharts();
+  else if (pageId === 'pageZones') renderZoneCharts();
+}
+
+// ── Shared chart helpers ───────────────────────
+function setupCanvas(id) {
+  const c = document.getElementById(id);
+  if (!c) return null;
+  const W = c.offsetWidth || c.parentElement.offsetWidth || 400;
+  const H = c.height || 130;
+  c.width = W; c.height = H;
+  return { c, ctx: c.getContext('2d'), W, H };
+}
+
+function gridLines(ctx, W, H, pad, steps, color='#1a2e45') {
+  ctx.strokeStyle = color; ctx.lineWidth = 1;
+  for (let i=0; i<=steps; i++) {
+    const y = pad.t + (H - pad.t - pad.b) * (1 - i/steps);
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke();
+  }
+}
+
+function barChart(ctx, W, H, pad, data, colors, labels, maxVal) {
+  const cW = W - pad.l - pad.r;
+  const cH = H - pad.t - pad.b;
+  const bW = cW / data[0].length;
+  const gap = bW * 0.18;
+  const bCount = data.length;
+
+  data.forEach((series, si) => {
+    series.forEach((v, i) => {
+      const x = pad.l + i * bW + gap/2 + si * ((bW - gap) / bCount);
+      const bw = (bW - gap) / bCount;
+      const bh = (v / maxVal) * cH;
+      const y = pad.t + cH - bh;
+      ctx.fillStyle = colors[si] + 'cc';
+      ctx.fillRect(x, y, bw - 1, bh);
+    });
   });
-});
+
+  if (labels) {
+    ctx.font = '9px Syne Mono, monospace'; ctx.fillStyle = '#4a6a82';
+    labels.forEach((lbl, i) => {
+      const x = pad.l + i * bW + bW/2;
+      ctx.fillText(lbl, x - 8, H - 3);
+    });
+  }
+}
+
+function lineChart(ctx, W, H, pad, datasets, maxVal) {
+  const cW = W - pad.l - pad.r;
+  const cH = H - pad.t - pad.b;
+  datasets.forEach(({ data, color }) => {
+    const dx = cW / (data.length - 1);
+    ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+    data.forEach((v,i) => {
+      const x = pad.l + i*dx;
+      const y = pad.t + cH - (v/maxVal)*cH;
+      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+    ctx.lineTo(pad.l+(data.length-1)*dx, pad.t+cH);
+    ctx.lineTo(pad.l, pad.t+cH); ctx.closePath();
+    const g = ctx.createLinearGradient(0,pad.t,0,pad.t+cH);
+    g.addColorStop(0, color.replace(')',',0.18)').replace('rgb','rgba'));
+    g.addColorStop(1, color.replace(')',',0)').replace('rgb','rgba'));
+    ctx.fillStyle = g; ctx.fill();
+  });
+}
+
+// ── Monthly charts ─────────────────────────────
+function renderMonthlyCharts() {
+  // KPIs
+  const r = seededRand(55);
+  document.getElementById('mkpi1').textContent = (4.2 + r()*0.6).toFixed(1)+'M';
+  document.getElementById('mkpi1d').textContent = `↑ ${(3+r()*8).toFixed(1)}% vs last month`;
+  document.getElementById('mkpi2').textContent = MD.totalSaved.toFixed(1);
+  document.getElementById('mkpi2d').textContent = `${(MD.totalSaved/864*100).toFixed(1)}% saved vs baseline`;
+  document.getElementById('mkpi3').textContent = Math.floor(22 + r()*14);
+  document.getElementById('mkpi3d').textContent = '0 unresolved';
+  const avgB = MD.brightDist.reduce((s,v,i)=>s+v*(i*20+10),0)/100;
+  document.getElementById('mkpi4').textContent = avgB.toFixed(1);
+  document.getElementById('mkpi4d').textContent = `↓ ${(62-avgB).toFixed(1)}% below always-on`;
+
+  // Energy chart
+  {
+    const cv = setupCanvas('monthEnergyChart'); if (!cv) return;
+    const {ctx,W,H} = cv; const pad = {t:10,b:22,l:30,r:10};
+    const cH = H-pad.t-pad.b;
+    ctx.clearRect(0,0,W,H);
+    gridLines(ctx,W,H,pad,4);
+    const maxV = 35;
+    const days = MD.days;
+    const bW = (W-pad.l-pad.r)/days.length;
+    // Baseline
+    const baseY = pad.t + cH - (days[0].baseline/maxV)*cH;
+    ctx.strokeStyle = '#ff4d4d55'; ctx.lineWidth = 1; ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.moveTo(pad.l,baseY); ctx.lineTo(W-pad.r,baseY); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = '9px Syne Mono,monospace'; ctx.fillStyle = '#ff4d4d88';
+    ctx.fillText('BASELINE', W-70, baseY-3);
+
+    // Consumed bars
+    days.forEach((d,i) => {
+      const bh = (d.consumed/maxV)*cH;
+      const x = pad.l + i*bW + 1;
+      ctx.fillStyle = i < new Date().getDate() ? '#26d9b055' : '#1a2e45';
+      ctx.fillRect(x, pad.t+cH-bh, bW-2, bh);
+    });
+
+    // Line
+    lineChart(ctx,W,H,pad,[{data:days.map(d=>d.consumed),color:'rgb(38,217,176)'}],maxV);
+
+    // X labels
+    ctx.font = '9px Syne Mono,monospace'; ctx.fillStyle = '#4a6a82';
+    [1,8,15,22,29].forEach(d => {
+      const x = pad.l + (d-1)*bW + bW/2;
+      ctx.fillText('D'+d, x-8, H-4);
+    });
+    // Y labels
+    [0,10,20,30].forEach(v => {
+      const y = pad.t + cH - (v/maxV)*cH + 3;
+      ctx.fillText(v, 2, y);
+    });
+  }
+
+  // Hourly traffic
+  {
+    const cv = setupCanvas('monthHourlyChart'); if (!cv) return;
+    const {ctx,W,H} = cv; const pad = {t:10,b:22,l:26,r:8};
+    const cH = H-pad.t-pad.b;
+    ctx.clearRect(0,0,W,H);
+    gridLines(ctx,W,H,pad,4);
+    barChart(ctx,W,H,pad,[MD.hourly],['rgb(38,217,176)'],
+      ['0','3','6','9','12','15','18','21'].map((l,i) => i<8 ? l : ''), 100);
+    // custom x labels
+    ctx.font = '9px Syne Mono,monospace'; ctx.fillStyle = '#4a6a82';
+    const bW = (W-pad.l-pad.r)/24;
+    [0,3,6,9,12,15,18,21].forEach(h => {
+      ctx.fillText(h+'h', pad.l + h*bW, H-4);
+    });
+    [0,25,50,75].forEach(v => {
+      const y = pad.t + cH - (v/100)*cH + 3;
+      ctx.fillText(v, 2, y);
+    });
+  }
+
+  // Brightness distribution donut-ish bar
+  {
+    const cv = setupCanvas('monthBrightChart'); if (!cv) return;
+    const {ctx,W,H} = cv; const pad = {t:10,b:40,l:26,r:8};
+    const cH = H-pad.t-pad.b;
+    ctx.clearRect(0,0,W,H);
+    gridLines(ctx,W,H,pad,4);
+    const labels = ['<20%','20-40','40-60','60-80','80-100'];
+    const colors = ['#4d9fff','#26d9b0','#f5a623','#ff8c40','#ff4d4d'];
+    barChart(ctx,W,H,pad,[MD.brightDist],colors,labels, 40);
+    // colour-coded x labels
+    ctx.font = '9px Syne Mono,monospace';
+    const bW = (W-pad.l-pad.r)/MD.brightDist.length;
+    labels.forEach((l,i) => {
+      ctx.fillStyle = colors[i];
+      ctx.fillText(l, pad.l + i*bW + 2, H-4);
+    });
+    [0,10,20,30].forEach(v => {
+      const y = pad.t + cH - (v/40)*cH + 3;
+      ctx.fillStyle = '#4a6a82'; ctx.fillText(v+'%', 0, y);
+    });
+  }
+
+  // Heatmap
+  {
+    const grid = document.getElementById('heatmapGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    const r2 = seededRand(77);
+    const today = new Date().getDate();
+    for (let d=0; d<today; d++) {
+      for (let h=0; h<24; h++) {
+        let v;
+        if (h>=8&&h<=10) v = 0.65+r2()*0.3;
+        else if (h>=17&&h<=20) v = 0.7+r2()*0.28;
+        else if (h>=1&&h<=5) v = 0.02+r2()*0.1;
+        else v = 0.28+r2()*0.32;
+        const cell = document.createElement('div');
+        cell.className = 'hm-cell';
+        const opacity = 0.12 + v*0.88;
+        cell.style.background = `rgba(38,217,176,${opacity})`;
+        cell.setAttribute('data-tip', `Day ${d+1} ${h}:00 — ${Math.round(v*100)} density`);
+        grid.appendChild(cell);
+      }
+    }
+  }
+}
+
+// ── Yearly charts ──────────────────────────────
+function renderYearlyCharts() {
+  const r = seededRand(33);
+  // KPIs
+  document.getElementById('ykpi1').textContent = (YD.yearSaving/1000).toFixed(2);
+  document.getElementById('ykpi1d').textContent = `↑ ${(12+r()*8).toFixed(1)}% over SCM target`;
+  document.getElementById('ykpi2').textContent = '₹'+YD.bescomSave;
+  document.getElementById('ykpi2d').textContent = `↑ ${(18+r()*10).toFixed(1)}% YoY`;
+  document.getElementById('ykpi3').textContent = YD.co2;
+  document.getElementById('ykpi3d').textContent = `equiv. ${Math.round(YD.co2*4.5)} trees planted`;
+  document.getElementById('ykpi4').textContent = (98.5+r()*1.4).toFixed(1)+'%';
+  document.getElementById('ykpi4d').textContent = 'SLA: 99.5% target';
+
+  // 12-month energy
+  {
+    const cv = setupCanvas('yearEnergyChart'); if (!cv) return;
+    const {ctx,W,H} = cv; const pad = {t:10,b:24,l:30,r:10};
+    const cH = H-pad.t-pad.b;
+    ctx.clearRect(0,0,W,H);
+    gridLines(ctx,W,H,pad,4);
+    const maxV = Math.max(...YD.months.map(m=>m.baseline)) * 1.1;
+    barChart(ctx,W,H,pad,
+      [YD.months.map(m=>m.consumed), YD.months.map(m=>m.baseline-m.consumed)],
+      ['rgb(77,159,255)','rgb(38,217,176)'],
+      MONTHS, maxV);
+    lineChart(ctx,W,H,pad,[{data:YD.months.map(m=>m.consumed),color:'rgb(77,159,255)'}],maxV);
+    ctx.font = '9px Syne Mono,monospace'; ctx.fillStyle = '#4a6a82';
+    [0,200,400,600].forEach(v => {
+      const y = pad.t + cH - (v/maxV)*cH + 3;
+      ctx.fillText(v, 2, y);
+    });
+  }
+
+  // Anomaly by month
+  {
+    const cv = setupCanvas('yearAnomalyChart'); if (!cv) return;
+    const {ctx,W,H} = cv; const pad = {t:10,b:22,l:26,r:8};
+    const cH = H-pad.t-pad.b;
+    ctx.clearRect(0,0,W,H);
+    gridLines(ctx,W,H,pad,4);
+    const maxA = Math.max(...YD.months.map(m=>m.anomalies)) + 3;
+    barChart(ctx,W,H,pad,[YD.months.map(m=>m.anomalies)],['rgb(255,77,77)'],MONTHS.map(m=>m.slice(0,1)),maxA);
+    ctx.font = '9px Syne Mono,monospace'; ctx.fillStyle = '#4a6a82';
+    const bW = (W-pad.l-pad.r)/12;
+    MONTHS.forEach((m,i) => ctx.fillText(m.slice(0,1), pad.l+i*bW+bW/2-3, H-4));
+  }
+
+  // Zone bar (annual traffic)
+  {
+    const cv = setupCanvas('yearZoneChart'); if (!cv) return;
+    const {ctx,W,H} = cv; const pad = {t:10,b:22,l:26,r:8};
+    ctx.clearRect(0,0,W,H); gridLines(ctx,W,H,pad,4);
+    const r2 = seededRand(88);
+    const trafData = POLES.map(p => +(p.baseTraffic * 525960 / 1e6).toFixed(2));
+    const maxT = Math.max(...trafData) * 1.15;
+    barChart(ctx,W,H,pad,[trafData],['rgb(245,166,35)'],POLES.map(p=>p.id.split('-')[1]),maxT);
+    ctx.font = '9px Syne Mono,monospace'; ctx.fillStyle = '#4a6a82';
+    const bW = (W-pad.l-pad.r)/8;
+    POLES.forEach((p,i) => ctx.fillText(p.id.split('-')[1], pad.l+i*bW+2, H-4));
+  }
+
+  // Cumulative savings
+  {
+    const cv = setupCanvas('yearSavingsChart'); if (!cv) return;
+    const {ctx,W,H} = cv; const pad = {t:10,b:22,l:32,r:8};
+    ctx.clearRect(0,0,W,H); gridLines(ctx,W,H,pad,4);
+    let cum = 0;
+    const inrPerKWh = 8.5;
+    const cumData = YD.months.map(m => {
+      cum += (m.baseline - m.consumed) * inrPerKWh / 100000;
+      return +cum.toFixed(2);
+    });
+    const maxC = Math.max(...cumData) * 1.1;
+    lineChart(ctx,W,H,pad,[{data:cumData,color:'rgb(245,166,35)'}],maxC);
+    ctx.font = '9px Syne Mono,monospace'; ctx.fillStyle = '#4a6a82';
+    const bW = (W-pad.l-pad.r)/12;
+    MONTHS.forEach((m,i) => ctx.fillText(m.slice(0,1), pad.l+i*bW+bW/2-3, H-4));
+    [0,1,2,3,4,5].filter(v=>v<=maxC+0.5).forEach(v=>{
+      const cH = H-pad.t-pad.b;
+      const y = pad.t + cH - (v/maxC)*cH+3;
+      ctx.fillText('₹'+v, 0, y);
+    });
+  }
+
+  // Seasonal brightness
+  {
+    const cv = setupCanvas('yearBrightSeasonChart'); if (!cv) return;
+    const {ctx,W,H} = cv; const pad = {t:10,b:22,l:26,r:8};
+    ctx.clearRect(0,0,W,H); gridLines(ctx,W,H,pad,4);
+    const colors = ['rgb(77,159,255)','rgb(245,166,35)','rgb(38,217,176)','rgb(255,77,77)'];
+    barChart(ctx,W,H,pad,[YD.qBright],colors,['Q1','Q2','Q3','Q4'],80);
+    ctx.font = '9px Syne Mono,monospace'; ctx.fillStyle = '#4a6a82';
+    const bW = (W-pad.l-pad.r)/4;
+    ['Q1','Q2','Q3','Q4'].forEach((q,i) => ctx.fillText(q, pad.l+i*bW+bW/2-5, H-4));
+  }
+}
+
+// ── Zone charts ────────────────────────────────
+function renderZoneCharts() {
+  document.getElementById('zTotal').textContent =
+    ZD.reduce((s,z)=>s+z.kWh,0).toFixed(1);
+
+  // Efficiency compare
+  {
+    const cv = setupCanvas('zoneCompareChart'); if (!cv) return;
+    const {ctx,W,H} = cv; const pad = {t:10,b:28,l:26,r:8};
+    ctx.clearRect(0,0,W,H); gridLines(ctx,W,H,pad,4);
+    const effData = ZD.map(z => +((1 - z.kWh / (150*24*30/1000)) * 100).toFixed(1));
+    const maxE = 60;
+    const cH = H-pad.t-pad.b;
+    const bW = (W-pad.l-pad.r)/ZD.length;
+    effData.forEach((v,i) => {
+      const bh = (v/maxE)*cH;
+      const x = pad.l + i*bW + bW*0.1;
+      const bww = bW*0.8;
+      const color = v > 40 ? '#26d9b0' : v > 30 ? '#f5a623' : '#ff4d4d';
+      ctx.fillStyle = color + 'cc';
+      ctx.fillRect(x, pad.t+cH-bh, bww, bh);
+      ctx.font = '8px Syne Mono,monospace'; ctx.fillStyle = color;
+      ctx.fillText(v+'%', x, pad.t+cH-bh-3);
+    });
+    ctx.font = '9px Syne Mono,monospace'; ctx.fillStyle = '#4a6a82';
+    ZD.forEach((z,i) => ctx.fillText(z.id.split('-')[1], pad.l+i*bW+bW*0.1, H-4));
+  }
+
+  // Table
+  const tbody = document.getElementById('zoneTbody');
+  if (tbody) {
+    tbody.innerHTML = '';
+    ZD.forEach(z => {
+      const eff = +((1 - z.kWh / (150*24*30/1000)) * 100).toFixed(1);
+      const tr = document.createElement('tr');
+      const statusClass = z.anom > 10 ? 'bad' : z.anom > 5 ? 'warn' : 'good';
+      const effClass = eff > 38 ? 'good' : eff > 28 ? 'warn' : 'bad';
+      tr.innerHTML = `
+        <td class="mono good">${z.id}</td>
+        <td>${z.zone}</td>
+        <td class="mono">${z.avgT} v/min</td>
+        <td class="mono">${z.avgB}%</td>
+        <td class="mono ${effClass}">${z.kWh} kWh</td>
+        <td class="mono good">₹${z.inr}</td>
+        <td class="mono ${statusClass}">${z.anom}</td>
+        <td class="${statusClass}">${z.anom > 10 ? 'REVIEW' : z.anom > 5 ? 'MONITOR' : 'NOMINAL'}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+}
 
 // ── Init ───────────────────────────────────────
-renderPoleList();
-initChart();
-addLog('Urja-Stambh Edge-AI Controller initialized', 'ok');
-addLog('Connecting to 8 nodes across Bengaluru zones…', 'ok');
-addLog('RTOS handshake complete — AI inference engine active', 'ok');
+renderPoles();
+initLiveChart();
+addLog('Urja-Stambh v2 Edge-AI Controller initialised', 'ok');
+addLog('Connecting to 8 zone nodes across Bengaluru…', 'ok');
+addLog('RTOS handshake complete — inference engine active', 'ok');
+addLog('BESCOM billing integration: LIVE', 'ok');
 
-setInterval(simulateTick, 1000);
-simulateTick();
+setInterval(tick, 1000);
+tick();
+
+// Resize handler
+window.addEventListener('resize', () => {
+  const activeTab = document.querySelector('.nav-tab.active');
+  if (activeTab && activeTab.dataset.page !== 'pageLive') {
+    setTimeout(() => renderStatCharts(activeTab.dataset.page), 50);
+  }
+});
 </script>
 </body>
-</html>
-  
+</html>v
