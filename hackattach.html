@@ -301,3 +301,119 @@
     align-items: flex-start;
     gap: 28px;
   }
+ /* ── Big Pole Visual ── */
+  .pole-hero {
+    display: flex;
+    align-items: flex-start;
+    gap: 28px;
+  }
+
+  .pole-visual-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    min-width: 100px;
+  }
+
+  .pole-lamp {
+    width: 80px; height: 28px;
+    border-radius: 4px 4px 0 0;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    transition: background 0.6s, box-shadow 0.6s;
+  }
+
+  .pole-lamp-inner {
+    width: 68px; height: 14px;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.85);
+    transition: opacity 0.6s, box-shadow 0.6s;
+  }
+
+  .pole-body {
+    width: 10px;
+    height: 160px;
+    background: linear-gradient(180deg, #1a3d50 0%, #0e2530 100%);
+    border-radius: 2px;
+  }
+
+  .pole-base {
+    width: 30px; height: 10px;
+    background: #0e2530;
+    border-radius: 0 0 3px 3px;
+  }
+
+  /* Light cone */
+  .light-cone {
+    position: absolute;
+    top: 28px; left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 55px solid transparent;
+    border-right: 55px solid transparent;
+    pointer-events: none;
+    transition: border-top-width 0.5s, opacity 0.6s;
+    opacity: 0;
+  }
+
+  /* ── Gauges ── */
+  .gauges-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  .gauge-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 14px 12px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .gauge-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(0,229,192,0.04) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .gauge-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .gauge-val {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.7rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .gauge-unit {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.58rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+  }
+
+  .gauge-bar-bg {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 10px;
+    overflow: hidden;
+  }
+
+  .gauge-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 1s cubic-bezier(.4,0,.2,1);
+  }
